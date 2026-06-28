@@ -191,18 +191,24 @@ let initPromise = null;
 function ensureInit() {
   if (!initPromise) {
     initPromise = (async () => {
-      // Создаём таблицы по одной — если упадёт, Turso вернёт точную ошибку.
-      for (const stmt of SCHEMA_STATEMENTS) {
-        await db.execute(stmt);
+      // Создаём таблицы по одной. CREATE TABLE IF NOT EXISTS не должен
+      // падать, но на Vercel при параллельных cold starts возможны
+      // гонки — обёрнут каждый statement в try/catch и логируем ошибки.
+      for (let i = 0; i < SCHEMA_STATEMENTS.length; i++) {
+        try {
+          await db.execute(SCHEMA_STATEMENTS[i]);
+        } catch (e) {
+          console.error('Schema stmt ' + i + ' failed: ' + e.message);
+          // Не пробрасываем — таблица уже может существовать.
+        }
       }
-      // Seed обёрнут в try/catch: на Vercel serverless функции могут
-      // запускаться параллельно, и два cold start'а одновременно могут
-      // попытаться вставить начальные данные — это вызывает UNIQUE
-      // constraint violation (HTTP 400 от Turso). Игнорируем такие ошибки.
+      // Seed обёрнут в try/catch на верхнем уровне: если данные уже есть
+      // (UNIQUE constraint) или произошла гонка — игнорируем. Лучше
+      // показать пустой список, чем 500.
       try {
         await seedData();
       } catch (e) {
-        if (!/UNIQUE constraint/i.test(e.message)) throw e;
+        console.error('seedData failed (ignored): ' + e.message);
       }
     })().catch(err => {
       initPromise = null; // сбрасываем, чтобы можно было повторить
