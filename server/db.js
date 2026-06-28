@@ -1,8 +1,8 @@
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'graal.db'));
-db.pragma('journal_mode = WAL');
+const db = new DatabaseSync(path.join(__dirname, 'graal.db'));
+db.exec('PRAGMA journal_mode = WAL');
 
 // Создание таблиц
 db.exec(`

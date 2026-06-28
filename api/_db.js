@@ -1,4 +1,4 @@
-const Database = require('better-sqlite3');
+const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 
 // Для Vercel: храним БД в /tmp, чтобы она не очищалась на каждый запрос
@@ -6,8 +6,8 @@ const dbPath = process.env.NODE_ENV === 'production'
   ? path.join('/tmp', 'graal.db') 
   : path.join(__dirname, '..', 'server', 'graal.db');
 
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+const db = new DatabaseSync(dbPath);
+db.exec('PRAGMA journal_mode = WAL');
 
 // Создание таблиц
 db.exec(`
