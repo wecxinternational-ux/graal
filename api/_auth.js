@@ -27,4 +27,17 @@ const parseJSON = (str, def) => {
   try { return JSON.parse(str); } catch { return def; }
 };
 
-module.exports = { authenticateToken, parseJSON, JWT_SECRET, db, ensureInit };
+// Безопасная инициализация БД.
+// В случае ошибки отправляет JSON 500 вместо проброса исключения
+// (которое на Vercel превращается в HTML-страницу "A server error...").
+async function ensureInitSafe(res) {
+  try {
+    await ensureInit();
+    return true;
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка инициализации БД', details: err.message });
+    return false;
+  }
+}
+
+module.exports = { authenticateToken, parseJSON, JWT_SECRET, db, ensureInit, ensureInitSafe };

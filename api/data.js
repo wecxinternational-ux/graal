@@ -1,7 +1,7 @@
-const { db, parseJSON, ensureInit } = require('./_auth');
+const { db, parseJSON, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
-  await ensureInit();
+  if (!await ensureInitSafe(res)) return;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Метод не поддерживается' });

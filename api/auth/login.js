@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, JWT_SECRET, ensureInit } = require('../_auth');
+const { db, JWT_SECRET, ensureInitSafe } = require('../_auth');
 
 module.exports = async (req, res) => {
-  await ensureInit();
+  if (!await ensureInitSafe(res)) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Метод не поддерживается' });

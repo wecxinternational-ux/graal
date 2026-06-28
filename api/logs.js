@@ -1,7 +1,7 @@
-const { db, parseJSON, authenticateToken, ensureInit } = require('./_auth');
+const { db, parseJSON, authenticateToken, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
-  await ensureInit();
+  if (!await ensureInitSafe(res)) return;
 
   if (req.method === 'GET') {
     const logs = (await db.execute('SELECT * FROM logs ORDER BY id DESC')).rows;

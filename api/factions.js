@@ -1,7 +1,7 @@
-const { db, authenticateToken, ensureInit } = require('./_auth');
+const { db, authenticateToken, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
-  await ensureInit();
+  if (!await ensureInitSafe(res)) return;
 
   if (req.method === 'GET') {
     const factions = (await db.execute('SELECT * FROM factions')).rows;
