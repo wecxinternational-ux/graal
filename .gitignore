@@ -1,3 +1,9 @@
-./node_modules
-node_modules
-/node_modules
+node_modules/
+server/node_modules/
+server/graal.db
+server/graal.db-wal
+server/graal.db-shm
+*.db
+*.db-wal
+*.db-shm
+.DS_Store

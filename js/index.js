@@ -7,7 +7,7 @@ const API_BASE = '/api';
 let authToken = localStorage.getItem('authToken');
 let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
-async function apiRequest(endpoint, options = {}) {
+async function apiRequest(endpoint, options = {}, query = {}) {
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers
@@ -15,7 +15,12 @@ async function apiRequest(endpoint, options = {}) {
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  let url = `${API_BASE}${endpoint}`;
+  if (Object.keys(query).length > 0) {
+    const params = new URLSearchParams(query);
+    url += `?${params}`;
+  }
+  const response = await fetch(url, {
     ...options,
     headers
   });
@@ -300,10 +305,10 @@ async function awardItem(){
   const exIdx=it.awardedTo.findIndex(a=>a.player===player);
   if(exIdx!==-1)it.awardedTo[exIdx].qty+=qty;
   else it.awardedTo.push({player,qty});
-  await apiRequest(`/items/${it.id}`, {
+  await apiRequest('/items', {
     method: 'PUT',
     body: JSON.stringify(it)
-  });
+  }, { id: it.id });
   await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> выдан <span class="li-pl">${player}</span> ×${qty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`«${it.name}» выдан ${player} ×${qty}`,'ok');
   closeModal('m-item-detail');renderItems();
@@ -321,10 +326,10 @@ async function revokeItem(){
   ex.qty-=actualQty;
   it.qty+=actualQty;
   if(ex.qty<=0)it.awardedTo.splice(exIdx,1);
-  await apiRequest(`/items/${it.id}`, {
+  await apiRequest('/items', {
     method: 'PUT',
     body: JSON.stringify(it)
-  });
+  }, { id: it.id });
   await addLog('revoke','🚫',`Предмет <span class="li-it">«${it.name}»</span> изъят у <span class="li-pl">${player}</span> ×${actualQty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`«${it.name}» изъят у ${player} ×${actualQty}`,'ok');
   closeModal('m-item-detail');renderItems();
@@ -612,10 +617,10 @@ async function addComment(){
   post.comments=post.comments||[];
   const newComment={author:currentUser?.username||'Мастер Эрандил',text,time:new Date().toLocaleString('ru-RU')};
   post.comments.push(newComment);
-  await apiRequest(`/${threadType==='note'?'notes':'guides'}/${post.id}`, {
+  await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
     method: 'PUT',
     body: JSON.stringify(post)
-  });
+  }, { id: post.id });
   renderComments(post);
   inp.value='';
 }
@@ -657,10 +662,10 @@ async function gmGivePoints(){
   if(!pname||pname.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(!amt){toast('Введите количество поинтов','er');return}
   const p=DB.players.find(x=>x.name===pname);if(p)p.points+=amt;
-  await apiRequest(`/players/${p.id}`, {
+  await apiRequest('/players', {
     method: 'PUT',
     body: JSON.stringify(p)
-  });
+  }, { id: p.id });
   await addLog('award','💎',`<span class="li-pl">${pname}</span> получил <strong>+${amt} поинтов</strong>. Причина: ${reason||'—'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${pname} +${amt} поинтов`,'ok');
   document.getElementById('gm-pts-amt').value='';document.getElementById('gm-pts-reason').value='';
@@ -685,10 +690,10 @@ async function gmApplyKt(){
     }
     if(ch.kt[0]>=ch.kt[1]){ch.level++;ch.kt=[0,8+Math.floor(ch.level/4)*2];await addLog('level','⬆',`<span class="li-pl">${cname}</span> достиг <strong>${ch.level} уровня</strong>!`);}
   }
-  await apiRequest(`/players/${p.id}`, {
+  await apiRequest('/players', {
     method: 'PUT',
     body: JSON.stringify(p)
-  });
+  }, { id: p.id });
   if(fac&&!DB.factions.find(f=>f.name===fac)){
     DB.factions.push({name:fac,color:'#A78BFA'});
     await apiRequest('/factions', {
@@ -712,10 +717,10 @@ async function gmCertify(status){
   const p=DB.players.find(x=>x.name===pname);
   const ch=p?.chars.find(c=>c.name===cname);
   if(ch)ch.verified=status;
-  await apiRequest(`/players/${p.id}`, {
+  await apiRequest('/players', {
     method: 'PUT',
     body: JSON.stringify(p)
-  });
+  }, { id: p.id });
   await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${cname} ${status?'заверен':'разаверен'}`,'ok');
 }
@@ -736,20 +741,20 @@ function renderTx(){
 async function approveTx(id){
   const t=DB.transactions.find(x=>x.id===id);if(!t)return;
   t.status='approved';
-  await apiRequest(`/transactions/${t.id}`, {
+  await apiRequest('/transactions', {
     method: 'PUT',
     body: JSON.stringify(t)
-  });
+  }, { id: t.id });
   await addLog('award','🔑',`Транзакция одобрена: <span class="li-pl">${t.player}</span> — <strong>${t.desc}</strong>.`);
   toast('Транзакция одобрена','ok');renderTx();
 }
 async function rejectTx(id){
   const t=DB.transactions.find(x=>x.id===id);if(!t)return;
   t.status='rejected';
-  await apiRequest(`/transactions/${t.id}`, {
+  await apiRequest('/transactions', {
     method: 'PUT',
     body: JSON.stringify(t)
-  });
+  }, { id: t.id });
   toast('Транзакция отклонена','er');renderTx();
 }
 
