@@ -15,18 +15,18 @@ const db = createClient(
     : { url: dbUrl }
 );
 
-// Схема БД
-const SCHEMA = `
-  CREATE TABLE IF NOT EXISTS users (
+// Схема БД — каждый CREATE выполняется отдельно, чтобы Turso вернул
+// точную ошибку, если какой-то statement некорректен.
+const SCHEMA_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     role TEXT DEFAULT 'player',
     createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS items (
+  )`,
+  `CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     type TEXT,
@@ -39,9 +39,8 @@ const SCHEMA = `
     author TEXT,
     img TEXT,
     awardedTo TEXT DEFAULT '[]'
-  );
-
-  CREATE TABLE IF NOT EXISTS notes (
+  )`,
+  `CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     tags TEXT DEFAULT '[]',
@@ -51,9 +50,8 @@ const SCHEMA = `
     date TEXT,
     atts TEXT DEFAULT '[]',
     comments TEXT DEFAULT '[]'
-  );
-
-  CREATE TABLE IF NOT EXISTS guides (
+  )`,
+  `CREATE TABLE IF NOT EXISTS guides (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     tags TEXT DEFAULT '[]',
@@ -62,9 +60,8 @@ const SCHEMA = `
     date TEXT,
     atts TEXT DEFAULT '[]',
     comments TEXT DEFAULT '[]'
-  );
-
-  CREATE TABLE IF NOT EXISTS players (
+  )`,
+  `CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     discord TEXT,
@@ -72,9 +69,8 @@ const SCHEMA = `
     slots INTEGER DEFAULT 1,
     chars TEXT DEFAULT '[]',
     userId INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS logs (
+  )`,
+  `CREATE TABLE IF NOT EXISTS logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT,
     icon TEXT,
@@ -82,22 +78,20 @@ const SCHEMA = `
     meta TEXT DEFAULT '{}',
     time TEXT,
     ts INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS factions (
+  )`,
+  `CREATE TABLE IF NOT EXISTS factions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     color TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS transactions (
+  )`,
+  `CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player TEXT,
     "desc" TEXT,
     cost INTEGER,
     status TEXT DEFAULT 'pending'
-  );
-`;
+  )`
+];
 
 // Начальные данные
 async function seedData() {
@@ -197,8 +191,19 @@ let initPromise = null;
 function ensureInit() {
   if (!initPromise) {
     initPromise = (async () => {
-      await db.executeMultiple(SCHEMA);
-      await seedData();
+      // Создаём таблицы по одной — если упадёт, Turso вернёт точную ошибку.
+      for (const stmt of SCHEMA_STATEMENTS) {
+        await db.execute(stmt);
+      }
+      // Seed обёрнут в try/catch: на Vercel serverless функции могут
+      // запускаться параллельно, и два cold start'а одновременно могут
+      // попытаться вставить начальные данные — это вызывает UNIQUE
+      // constraint violation (HTTP 400 от Turso). Игнорируем такие ошибки.
+      try {
+        await seedData();
+      } catch (e) {
+        if (!/UNIQUE constraint/i.test(e.message)) throw e;
+      }
     })().catch(err => {
       initPromise = null; // сбрасываем, чтобы можно было повторить
       throw err;

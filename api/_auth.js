@@ -35,7 +35,14 @@ async function ensureInitSafe(res) {
     await ensureInit();
     return true;
   } catch (err) {
-    res.status(500).json({ error: 'Ошибка инициализации БД', details: err.message });
+    const hasUrl = !!process.env.TURSO_DATABASE_URL;
+    const hasToken = !!process.env.TURSO_AUTH_TOKEN;
+    res.status(500).json({
+      error: 'Ошибка инициализации БД',
+      details: err.message,
+      stack: err.stack,
+      env: { TURSO_DATABASE_URL: hasUrl, TURSO_AUTH_TOKEN: hasToken }
+    });
     return false;
   }
 }
