@@ -191,9 +191,6 @@ let initPromise = null;
 function ensureInit() {
   if (!initPromise) {
     initPromise = (async () => {
-      // Создаём таблицы по одной. CREATE TABLE IF NOT EXISTS не должен
-      // падать, но на Vercel при параллельных cold starts возможны
-      // гонки — обёрнут каждый statement в try/catch и логируем ошибки.
       for (let i = 0; i < SCHEMA_STATEMENTS.length; i++) {
         try {
           await db.execute(SCHEMA_STATEMENTS[i]);
