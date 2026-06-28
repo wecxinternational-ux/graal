@@ -9,6 +9,10 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Метод не поддерживается' });
   }
 
+  // Логируем входящие данные для диагностики.
+  console.log('register req.body:', JSON.stringify(req.body));
+  console.log('register content-type:', req.headers['content-type']);
+
   const { username, email, password } = req.body;
 
   if (!username || !email || !password) {
@@ -35,6 +39,19 @@ module.exports = async (req, res) => {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });
     }
-    res.status(500).json({ error: 'Ошибка сервера', details: err.message });
+    // Расширенное логирование для диагностики Turso HTTP 400.
+    // libsql часто теряет детали, поэтому выводим всё, что есть.
+    console.error('register error:', JSON.stringify({
+      message: err.message,
+      code: err.code,
+      name: err.name,
+      stack: err.stack
+    }));
+    res.status(500).json({
+      error: 'Ошибка сервера',
+      details: err.message,
+      code: err.code,
+      name: err.name
+    });
   }
 };
