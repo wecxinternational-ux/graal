@@ -1,34 +1,34 @@
-const { db, parseJSON, authenticateToken } = require('./_auth');
+const { db, parseJSON, authenticateToken, ensureInit } = require('./_auth');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
+  await ensureInit();
+
   if (req.method === 'GET') {
-    const players = db.prepare('SELECT * FROM players ORDER BY id DESC').all();
+    const players = (await db.execute('SELECT * FROM players ORDER BY id DESC')).rows;
     return res.json(players.map(p => ({...p, chars: parseJSON(p.chars, [])})));
   }
 
   if (req.method === 'POST') {
-    return authenticateToken(req, res, () => {
-      const {name, discord, points, slots, chars} = req.body;
-      const stmt = db.prepare(`
-        INSERT INTO players (name, discord, points, slots, chars, userId)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(name, discord, points || 0, slots || 1, JSON.stringify(chars || []), req.user?.id);
-      res.json({ id: result.lastInsertRowid, ...req.body });
+    if (!await authenticateToken(req, res)) return;
+    const {name, discord, points, slots, chars} = req.body;
+    const result = await db.execute({
+      sql: `INSERT INTO players (name, discord, points, slots, chars, userId)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [name, discord, points || 0, slots || 1, JSON.stringify(chars || []), req.user?.id]
     });
+    return res.json({ id: Number(result.lastInsertRowid), ...req.body });
   }
 
   if (req.method === 'PUT') {
-    return authenticateToken(req, res, () => {
-      const { id } = req.query;
-      const {name, discord, points, slots, chars} = req.body;
-      const stmt = db.prepare(`
-        UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?
-        WHERE id=?
-      `);
-      stmt.run(name, discord, points, slots, JSON.stringify(chars), id);
-      res.json({ success: true });
+    if (!await authenticateToken(req, res)) return;
+    const { id } = req.query;
+    const {name, discord, points, slots, chars} = req.body;
+    await db.execute({
+      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?
+            WHERE id=?`,
+      args: [name, discord, points, slots, JSON.stringify(chars), id]
     });
+    return res.json({ success: true });
   }
 
   return res.status(405).json({ error: 'Метод не поддерживается' });

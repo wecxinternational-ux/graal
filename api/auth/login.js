@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, JWT_SECRET } = require('../_auth');
+const { db, JWT_SECRET, ensureInit } = require('../_auth');
 
 module.exports = async (req, res) => {
+  await ensureInit();
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Метод не поддерживается' });
   }
@@ -13,7 +15,11 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Все поля обязательны' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  const result = await db.execute({
+    sql: 'SELECT * FROM users WHERE username = ?',
+    args: [username]
+  });
+  const user = result.rows[0];
   if (!user) {
     return res.status(401).json({ error: 'Неверные учётные данные' });
   }

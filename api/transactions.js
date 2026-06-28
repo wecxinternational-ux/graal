@@ -1,28 +1,32 @@
-const { db, authenticateToken } = require('./_auth');
+const { db, authenticateToken, ensureInit } = require('./_auth');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
+  await ensureInit();
+
   if (req.method === 'GET') {
-    const transactions = db.prepare('SELECT * FROM transactions ORDER BY id DESC').all();
+    const transactions = (await db.execute('SELECT * FROM transactions ORDER BY id DESC')).rows;
     return res.json(transactions);
   }
 
   if (req.method === 'POST') {
-    return authenticateToken(req, res, () => {
-      const {player, desc, cost, status} = req.body;
-      const stmt = db.prepare('INSERT INTO transactions (player, desc, cost, status) VALUES (?, ?, ?, ?)');
-      const result = stmt.run(player, desc, cost, status || 'pending');
-      res.json({ id: result.lastInsertRowid, ...req.body });
+    if (!await authenticateToken(req, res)) return;
+    const {player, desc, cost, status} = req.body;
+    const result = await db.execute({
+      sql: 'INSERT INTO transactions (player, "desc", cost, status) VALUES (?, ?, ?, ?)',
+      args: [player, desc, cost, status || 'pending']
     });
+    return res.json({ id: Number(result.lastInsertRowid), ...req.body });
   }
 
   if (req.method === 'PUT') {
-    return authenticateToken(req, res, () => {
-      const { id } = req.query;
-      const {player, desc, cost, status} = req.body;
-      const stmt = db.prepare('UPDATE transactions SET player=?, desc=?, cost=?, status=? WHERE id=?');
-      stmt.run(player, desc, cost, status, id);
-      res.json({ success: true });
+    if (!await authenticateToken(req, res)) return;
+    const { id } = req.query;
+    const {player, desc, cost, status} = req.body;
+    await db.execute({
+      sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=? WHERE id=?',
+      args: [player, desc, cost, status, id]
     });
+    return res.json({ success: true });
   }
 
   return res.status(405).json({ error: 'Метод не поддерживается' });

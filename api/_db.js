@@ -1,16 +1,22 @@
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
+const { createClient } = require('@libsql/client');
 
-// Для Vercel: храним БД в /tmp, чтобы она не очищалась на каждый запрос
-const dbPath = process.env.NODE_ENV === 'production' 
-  ? path.join('/tmp', 'graal.db') 
-  : path.join(__dirname, '..', 'server', 'graal.db');
+// libSQL возвращает INTEGER-колонки как BigInt.
+// Конвертируем в Number для корректной JSON-сериализации.
+BigInt.prototype.toJSON = function () { return Number(this); };
 
-const db = new DatabaseSync(dbPath);
-db.exec('PRAGMA journal_mode = WAL');
+// Для Vercel (production): используем Turso (libSQL).
+// Для локальной разработки: используем локальный файл SQLite.
+const dbUrl = process.env.TURSO_DATABASE_URL || 'file:./server/graal.db';
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-// Создание таблиц
-db.exec(`
+const db = createClient(
+  authToken
+    ? { url: dbUrl, authToken }
+    : { url: dbUrl }
+);
+
+// Схема БД
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -29,7 +35,7 @@ db.exec(`
     stage INTEGER,
     price INTEGER DEFAULT 0,
     qty INTEGER DEFAULT 1,
-    desc TEXT,
+    "desc" TEXT,
     author TEXT,
     img TEXT,
     awardedTo TEXT DEFAULT '[]'
@@ -87,84 +93,76 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player TEXT,
-    desc TEXT,
+    "desc" TEXT,
     cost INTEGER,
     status TEXT DEFAULT 'pending'
   );
-`);
+`;
 
 // Начальные данные
-const initSeed = () => {
-  const itemsCount = db.prepare('SELECT COUNT(*) as count FROM items').get().count;
-  const notesCount = db.prepare('SELECT COUNT(*) as count FROM notes').get().count;
-  const guidesCount = db.prepare('SELECT COUNT(*) as count FROM guides').get().count;
-  const playersCount = db.prepare('SELECT COUNT(*) as count FROM players').get().count;
-  const factionsCount = db.prepare('SELECT COUNT(*) as count FROM factions').get().count;
+async function seedData() {
+  const itemsCount = (await db.execute('SELECT COUNT(*) as count FROM items')).rows[0].count;
+  const notesCount = (await db.execute('SELECT COUNT(*) as count FROM notes')).rows[0].count;
 
   if (itemsCount === 0 && notesCount === 0) {
-    const insertItem = db.prepare(`
-      INSERT INTO items (name, type, rarity, attune, stage, price, qty, desc, author, awardedTo)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertItem.run(
-      'Пылающий клинок',
-      'Оружие (длинный меч)',
-      'rare',
-      'yes',
-      2,
-      80,
-      3,
-      'Этот длинный меч окутан вечным магическим пламенем. При попадании наносит дополнительно 2к6 урона огнём.',
-      'Мастер Эрандил',
-      '[]'
-    );
+    await db.execute({
+      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, awardedTo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        'Пылающий клинок',
+        'Оружие (длинный меч)',
+        'rare',
+        'yes',
+        2,
+        80,
+        3,
+        'Этот длинный меч окутан вечным магическим пламенем. При попадании наносит дополнительно 2к6 урона огнём.',
+        'Мастер Эрандил',
+        '[]'
+      ]
+    });
 
-    const insertNote = db.prepare(`
-      INSERT INTO notes (title, tags, content, isPublic, author, date, atts, comments)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertNote.run(
-      'Хоумрул: Смерть персонажа',
-      JSON.stringify(['Хоумрул', 'Правила']),
-      '<h2>Правило гибели персонажа</h2><p>На нашем открытом столе персонаж, получивший 3 провала спасброска от смерти, не погибает автоматически — вместо этого он получает <strong>Постоянное увечье</strong> из специальной таблицы.</p>',
-      1,
-      'Мастер Эрандил',
-      new Date().toISOString().split('T')[0],
-      '[]',
-      '[]'
-    );
+    await db.execute({
+      sql: `INSERT INTO notes (title, tags, content, isPublic, author, date, atts, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        'Хоумрул: Смерть персонажа',
+        JSON.stringify(['Хоумрул', 'Правила']),
+        '<h2>Правило гибели персонажа</h2><p>На нашем открытом столе персонаж, получивший 3 провала спасброска от смерти, не погибает автоматически — вместо этого он получает <strong>Постоянное увечье</strong> из специальной таблицы.</p>',
+        1,
+        'Мастер Эрандил',
+        new Date().toISOString().split('T')[0],
+        '[]',
+        '[]'
+      ]
+    });
 
-    const insertGuide = db.prepare(`
-      INSERT INTO guides (title, tags, content, author, date, atts, comments)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    insertGuide.run(
-      'Правила открытого стола',
-      JSON.stringify(['Правила', 'Объявление']),
-      '<h2>Добро пожаловать!</h2><p>Это открытый стол в системе D&D 5e. Здесь вы найдёте все необходимые правила для участия в игре.</p><h3>Создание персонажа</h3><p>Персонаж создаётся по стандартным правилам PHB с учётом хоумрулов сервера.</p>',
-      'Мастер Эрандил',
-      new Date().toISOString().split('T')[0],
-      '[]',
-      '[]'
-    );
+    await db.execute({
+      sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        'Правила открытого стола',
+        JSON.stringify(['Правила', 'Объявление']),
+        '<h2>Добро пожаловать!</h2><p>Это открытый стол в системе D&D 5e. Здесь вы найдёте все необходимые правила для участия в игре.</p><h3>Создание персонажа</h3><p>Персонаж создаётся по стандартным правилам PHB с учётом хоумрулов сервера.</p>',
+        'Мастер Эрандил',
+        new Date().toISOString().split('T')[0],
+        '[]',
+        '[]'
+      ]
+    });
 
-    const insertPlayer = db.prepare(`
-      INSERT INTO players (name, discord, points, slots, chars)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    insertPlayer.run(
-      'Артемис Мирослав',
-      'artemis#0042',
-      240,
-      2,
-      JSON.stringify([{name:'Аэрис Тень',class:'Плут',subclass:'Аркановый трикстер',level:7,kt:[4,8],os:60,verified:true,rep:[]}])
-    );
+    await db.execute({
+      sql: `INSERT INTO players (name, discord, points, slots, chars) VALUES (?, ?, ?, ?, ?)`,
+      args: [
+        'Артемис Мирослав',
+        'artemis#0042',
+        240,
+        2,
+        JSON.stringify([{name:'Аэрис Тень',class:'Плут',subclass:'Аркановый трикстер',level:7,kt:[4,8],os:60,verified:true,rep:[]}])
+      ]
+    });
 
-    const insertTx = db.prepare(`
-      INSERT INTO transactions (player, desc, cost, status)
-      VALUES (?, ?, ?, ?)
-    `);
-    insertTx.run('Артемис Мирослав', 'Новый слот персонажа', 150, 'pending');
+    await db.execute({
+      sql: `INSERT INTO transactions (player, "desc", cost, status) VALUES (?, ?, ?, ?)`,
+      args: ['Артемис Мирослав', 'Новый слот персонажа', 150, 'pending']
+    });
 
     const factions = [
       {name:'Орден Рассветного Щита',color:'#FBBF24'},
@@ -173,24 +171,40 @@ const initSeed = () => {
       {name:'Серебряный Ковен',color:'#C084FC'},
       {name:'Нейтральные',color:'#9CA3AF'},
     ];
-    const insertFac = db.prepare('INSERT OR IGNORE INTO factions (name, color) VALUES (?, ?)');
-    factions.forEach(f => insertFac.run(f.name, f.color));
+    for (const f of factions) {
+      await db.execute({
+        sql: 'INSERT OR IGNORE INTO factions (name, color) VALUES (?, ?)',
+        args: [f.name, f.color]
+      });
+    }
 
-    const insertLog = db.prepare(`
-      INSERT INTO logs (type, icon, text, meta, time, ts)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    insertLog.run(
-      'item',
-      '⚔',
-      'Предмет <span class="li-it">«Пылающий клинок»</span> добавлен. Добавил: <span class="li-pl">Мастер Эрандил</span>. Кол-во: 3.',
-      '{}',
-      new Date().toLocaleString('ru-RU'),
-      Date.now()
-    );
+    await db.execute({
+      sql: `INSERT INTO logs (type, icon, text, meta, time, ts) VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
+        'item',
+        '⚔',
+        'Предмет <span class="li-it">«Пылающий клинок»</span> добавлен. Добавил: <span class="li-pl">Мастер Эрандил</span>. Кол-во: 3.',
+        '{}',
+        new Date().toLocaleString('ru-RU'),
+        Date.now()
+      ]
+    });
   }
-};
+}
 
-initSeed();
+// Ленивая инициализация (вызывается перед первым запросом)
+let initPromise = null;
+function ensureInit() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await db.executeMultiple(SCHEMA);
+      await seedData();
+    })().catch(err => {
+      initPromise = null; // сбрасываем, чтобы можно было повторить
+      throw err;
+    });
+  }
+  return initPromise;
+}
 
-module.exports = db;
+module.exports = { db, ensureInit };

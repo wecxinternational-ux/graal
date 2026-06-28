@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, JWT_SECRET } = require('../_auth');
+const { db, JWT_SECRET, ensureInit } = require('../_auth');
 
 module.exports = async (req, res) => {
+  await ensureInit();
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Метод не поддерживается' });
   }
@@ -15,17 +17,22 @@ module.exports = async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const stmt = db.prepare('INSERT INTO users (username, email, password) VALUES (?, ?, ?)');
-    const result = stmt.run(username, email, hashedPassword);
-    
-    // Создаём игрока автоматически
-    const playerStmt = db.prepare('INSERT INTO players (name, discord, userId) VALUES (?, ?, ?)');
-    playerStmt.run(username, '', result.lastInsertRowid);
+    const result = await db.execute({
+      sql: 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+      args: [username, email, hashedPassword]
+    });
+    const userId = Number(result.lastInsertRowid);
 
-    const token = jwt.sign({ id: result.lastInsertRowid, username, role: 'player' }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: result.lastInsertRowid, username, email, role: 'player' } });
+    // Создаём игрока автоматически
+    await db.execute({
+      sql: 'INSERT INTO players (name, discord, userId) VALUES (?, ?, ?)',
+      args: [username, '', userId]
+    });
+
+    const token = jwt.sign({ id: userId, username, role: 'player' }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: userId, username, email, role: 'player' } });
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed')) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });
     }
     res.status(500).json({ error: 'Ошибка сервера', details: err.message });

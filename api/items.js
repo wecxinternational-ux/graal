@@ -1,38 +1,38 @@
-const { db, parseJSON, authenticateToken } = require('./_auth');
+const { db, parseJSON, authenticateToken, ensureInit } = require('./_auth');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
+  await ensureInit();
+
   if (req.method === 'GET') {
-    const items = db.prepare('SELECT * FROM items ORDER BY id DESC').all();
+    const items = (await db.execute('SELECT * FROM items ORDER BY id DESC')).rows;
     return res.json(items.map(i => ({...i, awardedTo: parseJSON(i.awardedTo, [])})));
   }
 
   if (req.method === 'POST') {
-    return authenticateToken(req, res, () => {
-      const {name, type, rarity, attune, stage, price, qty, desc, author, img} = req.body;
-      const stmt = db.prepare(`
-        INSERT INTO items (name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = stmt.run(
-        name, type || 'Чудесный предмет', rarity, attune, 
-        stage, price || 0, qty || 1, desc, 
+    if (!await authenticateToken(req, res)) return;
+    const {name, type, rarity, attune, stage, price, qty, desc, author, img} = req.body;
+    const result = await db.execute({
+      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, img, awardedTo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        name, type || 'Чудесный предмет', rarity, attune,
+        stage, price || 0, qty || 1, desc,
         author || req.user?.username || 'Мастер Эрандил', img, '[]'
-      );
-      res.json({ id: result.lastInsertRowid, ...req.body, awardedTo: [] });
+      ]
     });
+    return res.json({ id: Number(result.lastInsertRowid), ...req.body, awardedTo: [] });
   }
 
   if (req.method === 'PUT') {
-    return authenticateToken(req, res, () => {
-      const { id } = req.query;
-      const {name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo} = req.body;
-      const stmt = db.prepare(`
-        UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, qty=?, desc=?, author=?, img=?, awardedTo=?
-        WHERE id=?
-      `);
-      stmt.run(name, type, rarity, attune, stage, price, qty, desc, author, img, JSON.stringify(awardedTo), id);
-      res.json({ success: true });
+    if (!await authenticateToken(req, res)) return;
+    const { id } = req.query;
+    const {name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo} = req.body;
+    await db.execute({
+      sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, qty=?, "desc"=?, author=?, img=?, awardedTo=?
+            WHERE id=?`,
+      args: [name, type, rarity, attune, stage, price, qty, desc, author, img, JSON.stringify(awardedTo), id]
     });
+    return res.json({ success: true });
   }
 
   return res.status(405).json({ error: 'Метод не поддерживается' });
