@@ -40,18 +40,25 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });
     }
     // Расширенное логирование для диагностики Turso HTTP 400.
-    // libsql часто теряет детали, поэтому выводим всё, что есть.
+    // libsql может прятать детали в err.cause.
     console.error('register error:', JSON.stringify({
       message: err.message,
       code: err.code,
       name: err.name,
+      cause: err.cause ? {
+        message: err.cause.message,
+        code: err.cause.code,
+        body: err.cause.body,
+        stack: err.cause.stack
+      } : null,
       stack: err.stack
     }));
     res.status(500).json({
       error: 'Ошибка сервера',
       details: err.message,
       code: err.code,
-      name: err.name
+      name: err.name,
+      cause: err.cause ? (err.cause.message || err.cause.body || String(err.cause)) : null
     });
   }
 };
