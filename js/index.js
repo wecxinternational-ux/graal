@@ -154,6 +154,23 @@ function updateUserProfile() {
   }
 }
 
+/* Мобильное меню */
+function toggleSidebar(force){
+  const sb=document.getElementById('sidebar');
+  const bd=document.getElementById('sb-backdrop');
+  const open=force===false?false:force===true?true:!sb.classList.contains('open');
+  sb.classList.toggle('open',open);
+  bd.classList.toggle('open',open);
+}
+/* Закрытие меню при выборе пункта */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.nav-a').forEach(el=>{
+    el.addEventListener('click',()=>{
+      if(window.matchMedia('(max-width: 768px)').matches)toggleSidebar(false);
+    });
+  });
+});
+
 /* ── Constants ── */
 const RARITY={common:'Обычный',uncommon:'Необычный',rare:'Редкий',very_rare:'Очень редкий',legendary:'Легендарный',artifact:'Артефакт',none:'Без редкости',varies:'Варьируется'};
 const STAGES={1:'I этап',2:'II этап',3:'III этап',4:'IV этап'};

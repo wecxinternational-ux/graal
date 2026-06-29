@@ -417,3 +417,120 @@ body.role-player .nav-sec.gm-only{display:none}
 .auth-form{display:flex;flex-direction:column;gap:14px}
 .auth-error{margin-top:14px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--red);padding:10px 14px;border-radius:var(--r);font-size:13px;text-align:center}
 .btn-full{width:100%;justify-content:center}
+.mc-toggle{display:none}
+.sb-backdrop{display:none}
+
+/* ══════════════
+   MOBILE / TABLET
+══════════════ */
+
+/* Планшеты и узкие экраны */
+@media (max-width: 1024px){
+  :root{--sw:220px}
+  .mc{padding:22px 22px}
+  .ig{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+  .gm-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .nl{grid-template-columns:190px 1fr;gap:16px}
+}
+
+/* Мобайл-меню: сайдбар становится выезжающим */
+@media (max-width: 768px){
+  :root{--sw:260px}
+  .sb{
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 0 40px rgba(0,0,0,.5);
+  }
+  .sb.open{transform:translateX(0)}
+  .sb-backdrop{
+    position:fixed;inset:0;background:rgba(0,0,0,.5);
+    backdrop-filter:blur(2px);z-index:99;display:none;
+  }
+  .sb-backdrop.open{display:block}
+  .mc{margin-left:0;padding:18px 14px 80px}
+  /* Кнопка-гамбургер */
+  .mc-toggle{
+    position:fixed;top:12px;left:12px;z-index:101;
+    width:42px;height:42px;border-radius:10px;
+    background:var(--bg-s);border:1px solid var(--bdr);
+    color:var(--gold);font-size:20px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 12px rgba(0,0,0,.3);transition:all .15s;
+  }
+  .mc-toggle:hover{background:var(--bg-h);border-color:var(--bdr-s)}
+  /* Заголовок страницы уходит под кнопку */
+  .page-hd{padding-left:54px;margin-bottom:18px}
+  .page-hd h1{font-size:20px}
+  /* Сетки → 1-2 колонки */
+  .ig{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .gm-grid{grid-template-columns:1fr;gap:14px}
+  .pg{grid-template-columns:1fr;gap:12px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
+  .nl{grid-template-columns:1fr;gap:14px}
+  .nl-filters{position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--bdr)}
+  .fg2{grid-template-columns:1fr;gap:10px}
+  .ir{grid-template-columns:1fr 1fr;gap:6px}
+  .ktg{grid-template-columns:1fr 1fr 1fr;gap:6px}
+  /* Модалки на весь экран */
+  .md{max-width:100%;max-height:100vh;border-radius:0}
+  .md-w{max-width:100%}
+  .mh{padding:14px 16px}
+  .mh h2{font-size:15px}
+  .mb{padding:16px}
+  .mf{padding:12px 16px}
+  /* Thread view */
+  .thread-view{padding:0}
+  .thread-panel{max-width:100%;border-radius:0;min-height:100vh}
+  /* Auth */
+  .auth-container{max-width:100%;margin:12px;padding:22px 18px;border-radius:14px}
+  .auth-page{padding:0;align-items:flex-start}
+  /* Rep rows компактнее */
+  .rep-row{flex-wrap:wrap;gap:6px}
+  .rep-row .fac-input{flex:1 1 100%}
+  .rep-row .fac-val{width:80px}
+  /* Comments */
+  .cmt{padding:10px 0}
+  .cmt-actions{opacity:1!important}
+  /* Cards */
+  .card{padding:14px}
+  .post{padding:14px}
+  .post-ex{padding:0 14px}
+  .post-ft{padding:0 14px 14px}
+  .prev-thumb{width:64px;height:64px}
+  /* User profile в сайдбаре */
+  .usr{flex-wrap:wrap;gap:6px}
+  .usr-av{width:30px;height:30px;font-size:9px}
+  .usr-n{font-size:11px}
+  .usr-r{font-size:9px}
+  .sb-ft{padding:10px}
+  /* Forms */
+  .inp,.sel,.ta{font-size:14px!important;padding:10px 12px}
+  /* Кнопки в строку */
+  .btn{padding:8px 14px;font-size:13px}
+  /* Tables → горизонтальный скролл */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:560px}
+  /* Char cards */
+  .char-card{padding:12px}
+  .char-stats{flex-wrap:wrap;gap:6px}
+  .rep-chip{font-size:10px;padding:3px 7px}
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 420px){
+  .mc{padding:14px 10px 80px}
+  .ig{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .page-hd h1{font-size:18px}
+  .auth-container{padding:18px 14px}
+  .auth-tab{font-size:12px;padding:8px}
+  .prev-thumb{width:56px;height:56px}
+  .card{padding:12px}
+  .btn{font-size:12px;padding:8px 12px}
+}
+
+/* Touch устройства: показывать actions без hover */
+@media (hover:none){
+  .cmt-actions{opacity:1!important}
+  .post-actions{opacity:1!important}
+}
