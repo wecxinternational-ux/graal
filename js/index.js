@@ -929,6 +929,7 @@ function openThread(id,type){
   // Встроенная секция подруководств (только для гайдов)
   const subHtml=type==='guide'?renderSubguides(id):'';
   // Изображения-вложения показываем как картинки, остальные — как чипы для скачивания
+  const atts=post.atts||[];
   const imgAtts=atts.filter(a=>a.type&&a.type.startsWith('image/'));
   const fileAtts=atts.filter(a=>!a.type||!a.type.startsWith('image/'));
   const imgsHtml=imgAtts.length?`<div class="att-imgs">${imgAtts.map((a,i)=>`
