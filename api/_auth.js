@@ -47,4 +47,17 @@ async function ensureInitSafe(res) {
   }
 }
 
-module.exports = { authenticateToken, parseJSON, JWT_SECRET, db, ensureInit, ensureInitSafe };
+// Проверка авторизации И роли ГМ.
+// Используется для всех POST/PUT/DELETE операций мастеру
+// (создание/изменение предметов, заметок, руководств, выдача поинтов, заверение и т.п.).
+// Игрокам возвращается 403.
+async function requireGm(req, res) {
+  if (!await authenticateToken(req, res)) return false;
+  if (req.user?.role !== 'gm') {
+    res.status(403).json({ error: 'Требуется роль ГМ' });
+    return false;
+  }
+  return true;
+}
+
+module.exports = { authenticateToken, requireGm, parseJSON, JWT_SECRET, db, ensureInit, ensureInitSafe };

@@ -1,4 +1,4 @@
-const { db, parseJSON, authenticateToken, ensureInitSafe } = require('./_auth');
+const { db, parseJSON, requireGm, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const {type, icon, text, meta, time, ts} = req.body;
     const result = await db.execute({
       sql: `INSERT INTO logs (type, icon, text, meta, time, ts)

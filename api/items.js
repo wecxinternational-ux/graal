@@ -1,4 +1,4 @@
-const { db, parseJSON, authenticateToken, ensureInitSafe } = require('./_auth');
+const { db, parseJSON, requireGm, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const {name, type, rarity, attune, stage, price, qty, desc, author, img} = req.body;
     const result = await db.execute({
       sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, img, awardedTo)
@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const { id } = req.query;
     const {name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo} = req.body;
     await db.execute({

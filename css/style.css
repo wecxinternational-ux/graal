@@ -179,13 +179,19 @@ textarea.inp{resize:vertical;min-height:80px}
 .comments{padding:18px 28px;border-top:1px solid var(--bdr)}
 .comments h4{font-family:var(--fd);font-size:13px;font-weight:700;color:var(--txt-s);margin-bottom:12px;letter-spacing:.06em}
 .comment-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
-.cmt{display:flex;gap:10px}
+.cmt{display:flex;gap:10px;position:relative}
+.cmt:hover .cmt-actions{opacity:1}
 .cmt-av{width:28px;height:28px;border-radius:50%;background:var(--pur-g);border:1px solid var(--bdr-s);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pur-b);flex-shrink:0;font-family:var(--fd)}
 .cmt-body{flex:1}
 .cmt-head{display:flex;gap:8px;align-items:baseline;margin-bottom:2px}
 .cmt-name{font-size:12px;font-weight:600;color:var(--txt)}
 .cmt-time{font-size:10px;color:var(--txt-m)}
+.cmt-edited{font-size:10px;color:var(--txt-m);font-style:italic}
 .cmt-text{font-size:13px;color:var(--txt-s)}
+.cmt-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s;align-self:flex-start;margin-top:-2px}
+.cmt-act{background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:4px;font-size:12px;color:var(--txt-m);line-height:1}
+.cmt-act:hover{background:var(--bg-h);color:var(--txt)}
+.cmt-act.cmt-del:hover{color:#ef4444}
 .cmt-inp-row{display:flex;gap:8px}
 
 /* ══════════════════════════
@@ -342,6 +348,22 @@ textarea.inp{resize:vertical;min-height:80px}
 
 /* ── Empty ── */
 .emp{text-align:center;padding:54px 22px;color:var(--txt-m);grid-column:1/-1}
+
+/* ── Role picker (register form) ── */
+.role-pick{display:flex;flex-direction:column;gap:8px}
+.role-opt{cursor:pointer;display:block}
+.role-opt input{position:absolute;opacity:0;pointer-events:none}
+.role-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--r);transition:border-color .15s,background .15s}
+.role-opt input:checked + .role-card{border-color:var(--pur);background:rgba(124,58,237,.10)}
+.role-ic{font-size:22px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--bg-h);border-radius:8px;flex-shrink:0}
+.role-info{flex:1;min-width:0}
+.role-name{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--txt);margin-bottom:2px}
+.role-desc{font-size:11px;color:var(--txt-s);line-height:1.4}
+
+/* ── Role-based UI visibility ── */
+body.role-gm .player-only{display:none}
+body.role-player .gm-only{display:none}
+body.role-player .nav-sec.gm-only{display:none}
 .emp-ic{font-size:44px;margin-bottom:10px;opacity:.45}
 .emp h3{font-family:var(--fd);font-size:14px;margin-bottom:5px;color:var(--txt-s)}
 .emp p{font-size:12px}

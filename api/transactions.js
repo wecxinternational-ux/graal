@@ -1,4 +1,4 @@
-const { db, authenticateToken, ensureInitSafe } = require('./_auth');
+const { db, requireGm, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const {player, desc, cost, status} = req.body;
     const result = await db.execute({
       sql: 'INSERT INTO transactions (player, "desc", cost, status) VALUES (?, ?, ?, ?)',
@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const { id } = req.query;
     const {player, desc, cost, status} = req.body;
     await db.execute({

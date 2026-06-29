@@ -13,28 +13,31 @@ module.exports = async (req, res) => {
   console.log('register req.body:', JSON.stringify(req.body));
   console.log('register content-type:', req.headers['content-type']);
 
-  const { username, email, password } = req.body;
+  const { username, email, password, role } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Все поля обязательны' });
   }
 
+  // Роль: 'gm' или 'player'. По умолчанию 'player'.
+  const userRole = role === 'gm' ? 'gm' : 'player';
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.execute({
-      sql: 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      args: [username, email, hashedPassword]
+      sql: 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+      args: [username, email, hashedPassword, userRole]
     });
     const userId = Number(result.lastInsertRowid);
 
-    // Создаём игрока автоматически
+    // Создаём игрока автоматически (для обеих ролей — ГМ тоже может иметь персонажей)
     await db.execute({
       sql: 'INSERT INTO players (name, discord, userId) VALUES (?, ?, ?)',
       args: [username, '', userId]
     });
 
-    const token = jwt.sign({ id: userId, username, role: 'player' }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: userId, username, email, role: 'player' } });
+    const token = jwt.sign({ id: userId, username, role: userRole }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: userId, username, email, role: userRole } });
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });

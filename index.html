@@ -10,7 +10,6 @@
 <body>
 <canvas id="cv"></canvas>
 
-<!-- ═══════ AUTH PAGE ═══════ -->
 <div id="auth-page" class="auth-page">
   <div class="auth-container">
     <div class="auth-logo">
@@ -26,7 +25,6 @@
       <div id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">Регистрация</div>
     </div>
 
-    <!-- Login Form -->
     <div id="login-form" class="auth-form">
       <div class="fg">
         <label>Имя пользователя</label>
@@ -41,7 +39,6 @@
       <button class="btn btn-p btn-full" onclick="login()">Войти</button>
     </div>
 
-    <!-- Register Form -->
     <div id="register-form" class="auth-form" style="display: none;">
       <div class="fg">
         <label>Имя пользователя</label>
@@ -58,6 +55,32 @@
         <input type="password" id="register-password" class="inp" placeholder="Придумайте пароль">
       </div>
       <br>
+      <div class="fg">
+        <label>Роль на сервере</label>
+        <div class="role-pick">
+          <label class="role-opt">
+            <input type="radio" name="register-role" value="player" checked>
+            <div class="role-card">
+              <div class="role-ic">🗡</div>
+              <div class="role-info">
+                <div class="role-name">Игрок</div>
+                <div class="role-desc">Доступ к руководствам, реестру персонажей и своим данным</div>
+              </div>
+            </div>
+          </label>
+          <label class="role-opt">
+            <input type="radio" name="register-role" value="gm">
+            <div class="role-card">
+              <div class="role-ic">🛡</div>
+              <div class="role-info">
+                <div class="role-name">Мастер (ГМ)</div>
+                <div class="role-desc">Полный доступ: база предметов, заметки, журнал, панель гейммастера</div>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+      <br>
       <button class="btn btn-p btn-full" onclick="register()">Зарегистрироваться</button>
     </div>
 
@@ -65,7 +88,6 @@
   </div>
 </div>
 
-<!-- ═══════ SIDEBAR ═══════ -->
 <aside class="sb" id="sidebar" style="display: none;">
   <div class="sb-hd">
     <div class="logo-rune">⬡</div>
@@ -75,14 +97,14 @@
     </div>
   </div>
   <nav class="sb-nav">
-    <div class="nav-sec">Инструменты мастера</div>
-    <div class="nav-a on" data-tab="items"><span class="nav-ic">⚔</span>База предметов</div>
-    <div class="nav-a" data-tab="notes"><span class="nav-ic">📜</span>Заметки мастеров</div>
-    <div class="nav-a" data-tab="gm"><span class="nav-ic">🛡</span>Панель ГМ</div>
-    <div class="nav-a" data-tab="logs"><span class="nav-ic">📋</span>Журнал событий</div>
+    <div class="nav-sec gm-only">Инструменты мастера</div>
+    <div class="nav-a on gm-only" data-tab="items"><span class="nav-ic">⚔</span>База предметов</div>
+    <div class="nav-a gm-only" data-tab="notes"><span class="nav-ic">📜</span>Заметки мастеров</div>
+    <div class="nav-a gm-only" data-tab="gm"><span class="nav-ic">🛡</span>Панель ГМ</div>
+    <div class="nav-a gm-only" data-tab="logs"><span class="nav-ic">📋</span>Журнал событий</div>
     <div class="nav-sec">Игрокам</div>
-    <div class="nav-a" data-tab="guide"><span class="nav-ic">📖</span>Руководство игрока</div>
-    <div class="nav-a" data-tab="players"><span class="nav-ic">👥</span>Персонажи</div>
+    <div class="nav-a player-only" data-tab="guide"><span class="nav-ic">📖</span>Руководство игрока</div>
+    <div class="nav-a player-only" data-tab="players"><span class="nav-ic">👥</span>Персонажи</div>
   </nav>
   <div class="sb-ft">
     <div class="usr" id="user-profile">
@@ -93,15 +115,13 @@
   </div>
 </aside>
 
-<!-- ═══════ MAIN ═══════ -->
 <main class="mc" id="main-content" style="display: none;">
 
-<!-- ── ITEMS ── -->
 <section class="tab on" id="tab-items">
   <div class="ph">
     <div><div class="ph-ey">База данных</div><h1 class="ph-ti">Магические предметы</h1></div>
     <div class="ph-r">
-      <button class="btn btn-p" onclick="openModal('m-add-item')">+ Добавить предмет</button>
+      <button class="btn btn-p gm-only" onclick="openModal('m-add-item')">+ Добавить предмет</button>
     </div>
   </div>
   <div class="fb">
@@ -127,11 +147,10 @@
   <div class="ig" id="items-grid"></div>
 </section>
 
-<!-- ── NOTES ── -->
 <section class="tab" id="tab-notes">
   <div class="ph">
     <div><div class="ph-ey">Мастерская</div><h1 class="ph-ti">Заметки мастеров</h1></div>
-    <button class="btn btn-p" onclick="openModal('m-new-note')">+ Новая статья</button>
+    <button class="btn btn-p gm-only" onclick="openModal('m-new-note')">+ Новая статья</button>
   </div>
   <div class="nl">
     <div class="nsf">
@@ -142,11 +161,9 @@
   </div>
 </section>
 
-<!-- ── GM PANEL ── -->
 <section class="tab" id="tab-gm">
   <div class="ph"><div><div class="ph-ey">Администрирование</div><h1 class="ph-ti">Панель Гейммастера</h1></div></div>
   <div class="gm-grid">
-    <!-- Points -->
     <div class="gmc">
       <div class="gmc-ic">💎</div>
       <h3>Выдача Поинтов</h3><p>Начислить игровые очки игроку</p>
@@ -159,7 +176,6 @@
         <button class="btn btn-p" onclick="gmGivePoints()">Выдать поинты</button>
       </div>
     </div>
-    <!-- КТ / ОС / Репутация -->
     <div class="gmc">
       <div class="gmc-ic">⬆</div>
       <h3>КТ / ОС / Репутация</h3><p>Управление прогрессом и фракциями персонажа</p>
@@ -169,20 +185,17 @@
         <div class="ktg">
           <div><label>КТ</label><input class="inp" type="number" id="gm-kt-val" placeholder="+0"></div>
           <div><label>ОС</label><input class="inp" type="number" id="gm-os-val" placeholder="+0"></div>
-          <div><label>Репутация</label><input class="inp" type="number" id="gm-rep-val" placeholder="+0"></div>
         </div>
-        <!-- Faction autocomplete -->
         <div class="fg">
-          <label>Фракция (для репутации)</label>
-          <div class="fac-wrap">
-            <input class="inp" id="gm-fac-inp" placeholder="Введите название фракции…" autocomplete="off" oninput="facInput()" onfocus="facInput()" onblur="setTimeout(()=>hideFac(),180)">
-            <div class="fac-drop" id="fac-drop"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label style="margin:0">Источники репутации</label>
+            <button class="btn btn-g" style="padding:3px 10px;font-size:12px" onclick="addRepRow()">+ Добавить</button>
           </div>
+          <div id="rep-rows" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
         <button class="btn btn-p" onclick="gmApplyKt()">Применить</button>
       </div>
     </div>
-    <!-- Certify -->
     <div class="gmc">
       <div class="gmc-ic">✅</div>
       <h3>Заверить персонажа</h3><p>Статус «Проверен» на персонаже</p>
@@ -195,7 +208,6 @@
         </div>
       </div>
     </div>
-    <!-- Transactions -->
     <div class="gmc">
       <div class="gmc-ic">🔑</div>
       <h3>Транзакции</h3><p>Подтверждение покупок за поинты</p>
@@ -204,7 +216,6 @@
   </div>
 </section>
 
-<!-- ── LOGS ── -->
 <section class="tab" id="tab-logs">
   <div class="ph">
     <div><div class="ph-ey">История</div><h1 class="ph-ti">Журнал событий</h1></div>
@@ -220,13 +231,10 @@
     </div>
   </div>
 
-  <!-- Stats cards -->
   <div class="stats-grid" id="stats-grid"></div>
 
-  <!-- Analytics panel (hidden by default) -->
   <div id="analytics-panel" style="display:none;margin-bottom:28px">
 
-    <!-- Overview row: type breakdown (clickable) + activity chart -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
       <div style="background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);padding:20px">
         <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-m);margin-bottom:4px">⚡ Разбивка по типам</div>
@@ -239,10 +247,8 @@
       </div>
     </div>
 
-    <!-- Drill-down panel (shown when type clicked) -->
     <div id="an-drilldown" style="display:none;margin-bottom:16px">
       <div style="background:var(--bg-e);border:1px solid var(--bdr-s);border-radius:var(--rl);overflow:hidden">
-        <!-- Drilldown header -->
         <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--bdr);background:var(--bg-h)">
           <div style="display:flex;align-items:center;gap:10px">
             <span id="dd-icon" style="font-size:20px"></span>
@@ -253,14 +259,11 @@
           </div>
           <button class="btn btn-g" style="padding:5px 12px;font-size:12px" onclick="closeDrilldown()">← Назад</button>
         </div>
-        <!-- Sub-tabs -->
         <div style="display:flex;gap:0;border-bottom:1px solid var(--bdr)" id="dd-tabs"></div>
-        <!-- Content -->
         <div style="padding:22px" id="dd-content"></div>
       </div>
     </div>
 
-    <!-- Bottom row: top items + top players -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);padding:20px">
         <div style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-m);margin-bottom:4px">🏆 Топ предметов по выдачам</div>
@@ -274,7 +277,6 @@
       </div>
     </div>
 
-    <!-- Item / Player detail popup -->
     <div id="an-detail-popup" style="display:none;margin-top:16px">
       <div style="background:var(--bg-e);border:1px solid var(--bdr-s);border-radius:var(--rl);overflow:hidden">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--bdr);background:var(--bg-h)">
@@ -284,10 +286,8 @@
         <div style="padding:20px" id="adp-content"></div>
       </div>
     </div>
-
   </div>
 
-  <!-- Search -->
   <div class="fb" style="margin-bottom:16px">
     <div class="sw-w"><span class="sw-ic">🔍</span><input class="inp" id="log-q" placeholder="Поиск по журналу…" oninput="renderLogs()"></div>
     <button class="btn btn-g" onclick="document.getElementById('log-q').value='';document.getElementById('log-type-f').value='';document.getElementById('log-date-f').value='';renderLogs()">Сбросить</button>
@@ -295,11 +295,10 @@
   <div class="lf" id="log-feed"></div>
 </section>
 
-<!-- ── GUIDE ── -->
 <section class="tab" id="tab-guide">
   <div class="ph">
     <div><div class="ph-ey">Публичный раздел</div><h1 class="ph-ti">Руководство игрока</h1></div>
-    <button class="btn btn-p" onclick="openModal('m-new-guide')">+ Новая запись</button>
+    <button class="btn btn-p gm-only" onclick="openModal('m-new-guide')">+ Новая запись</button>
   </div>
   <div class="nl">
     <div class="nsf">
@@ -310,11 +309,13 @@
   </div>
 </section>
 
-<!-- ── PLAYERS ── -->
 <section class="tab" id="tab-players">
   <div class="ph">
     <div><div class="ph-ey">Реестр</div><h1 class="ph-ti">Персонажи</h1></div>
-    <div class="sw-w" style="max-width:260px"><span class="sw-ic">🔍</span><input class="inp" id="player-q" placeholder="Поиск игрока…" oninput="renderPlayers()"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="sw-w" style="max-width:260px"><span class="sw-ic">🔍</span><input class="inp" id="player-q" placeholder="Поиск…" oninput="renderPlayers()"></div>
+      <button class="btn btn-p" onclick="openModal('m-new-char')">+ Создать персонажа</button>
+    </div>
   </div>
   <div class="pg" id="players-grid"></div>
 </section>
@@ -458,6 +459,29 @@
     <div class="mf">
       <button class="btn btn-g" onclick="closeModal('m-new-guide')">Отмена</button>
       <button class="btn btn-p" onclick="saveGuide()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Character -->
+<div class="mo" id="m-new-char">
+  <div class="md">
+    <div class="mh"><h2>Создать персонажа</h2><button class="mc-btn" onclick="closeModal('m-new-char')">✕</button></div>
+    <div class="mb">
+      <div class="fg2">
+        <div class="fg fg-full"><label>Имя персонажа</label><input class="inp" id="nc-name" placeholder="Аэрис Тень"></div>
+        <div class="fg"><label>Класс</label><input class="inp" id="nc-class" placeholder="Плут"></div>
+        <div class="fg"><label>Подкласс</label><input class="inp" id="nc-subclass" placeholder="Аркановый трикстер"></div>
+        <div class="fg"><label>Уровень</label><input class="inp" type="number" id="nc-level" value="1" min="1" max="20"></div>
+        <div class="fg"><label>КТ (минимум)</label><input class="inp" type="number" id="nc-kt-min" value="0" min="0"></div>
+        <div class="fg"><label>КТ (максимум)</label><input class="inp" type="number" id="nc-kt-max" value="0" min="0"></div>
+        <div class="fg"><label>ОС</label><input class="inp" type="number" id="nc-os" value="0" min="0"></div>
+        <div class="fg fg-full"><label>Описание / предыстория</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeModal('m-new-char')">Отмена</button>
+      <button class="btn btn-p" onclick="createCharacter()">Создать</button>
     </div>
   </div>
 </div>

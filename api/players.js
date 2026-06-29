@@ -1,4 +1,4 @@
-const { db, parseJSON, authenticateToken, ensureInitSafe } = require('./_auth');
+const { db, parseJSON, requireGm, authenticateToken, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
-    if (!await authenticateToken(req, res)) return;
+    if (!await requireGm(req, res)) return;
     const {name, discord, points, slots, chars} = req.body;
     const result = await db.execute({
       sql: `INSERT INTO players (name, discord, points, slots, chars, userId)
@@ -20,8 +20,20 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
+    // ГМ может обновлять любого игрока.
+    // Игрок может обновлять только свой профиль (по userId).
     if (!await authenticateToken(req, res)) return;
     const { id } = req.query;
+    if (req.user?.role !== 'gm') {
+      // Проверяем, что профиль принадлежит текущему пользователю
+      const target = (await db.execute({
+        sql: 'SELECT userId FROM players WHERE id=?',
+        args: [id]
+      })).rows[0];
+      if (!target || Number(target.userId) !== Number(req.user.id)) {
+        return res.status(403).json({ error: 'Можно редактировать только свой профиль' });
+      }
+    }
     const {name, discord, points, slots, chars} = req.body;
     await db.execute({
       sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?

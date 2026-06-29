@@ -85,6 +85,7 @@ async function register() {
   const username = document.getElementById('register-username').value.trim();
   const email = document.getElementById('register-email').value.trim();
   const password = document.getElementById('register-password').value;
+  const role = document.querySelector('input[name="register-role"]:checked')?.value || 'player';
 
   if (!username || !email || !password) {
     showAuthError('Пожалуйста, заполните все поля');
@@ -94,7 +95,7 @@ async function register() {
   try {
     const data = await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password })
+      body: JSON.stringify({ username, email, password, role })
     });
     authToken = data.token;
     currentUser = data.user;
@@ -120,13 +121,28 @@ function showAuthPage() {
   document.getElementById('auth-page').style.display = 'flex';
   document.getElementById('sidebar').style.display = 'none';
   document.getElementById('main-content').style.display = 'none';
+  document.body.classList.remove('role-gm', 'role-player');
 }
 
 function showApp() {
   document.getElementById('auth-page').style.display = 'none';
   document.getElementById('sidebar').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
+  // Применяем роль к body — CSS скрывает .gm-only / .player-only
+  document.body.classList.remove('role-gm', 'role-player');
+  document.body.classList.add(currentUser?.role === 'gm' ? 'role-gm' : 'role-player');
   updateUserProfile();
+  // Для игрока активируем вкладку 'guide' (items/notes/gm/logs скрыты)
+  const firstTab = currentUser?.role === 'gm' ? 'items' : 'guide';
+  const activeNav = document.querySelector('.nav-a.on');
+  if (!activeNav || activeNav.classList.contains('gm-only') && currentUser?.role !== 'gm') {
+    document.querySelectorAll('.nav-a').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    const target = document.querySelector(`.nav-a[data-tab="${firstTab}"]`);
+    const targetTab = document.getElementById('tab-' + firstTab);
+    if (target) target.classList.add('on');
+    if (targetTab) targetTab.classList.add('on');
+  }
   initApp();
 }
 
@@ -600,14 +616,57 @@ function openThread(id,type){
 function closeThread(){document.getElementById('thread-view').classList.remove('on');}
 function renderComments(post){
   const list=document.getElementById('comment-list');
-  list.innerHTML=(post.comments||[]).map(c=>`
+  const me=currentUser?.username;
+  const isGm=currentUser?.role==='gm';
+  list.innerHTML=(post.comments||[]).map((c,i)=>{
+    const canEdit=c.author===me;
+    const canDel=isGm||c.author===me;
+    const actions=(canEdit||canDel)?`
+      <div class="cmt-actions">
+        ${canEdit?`<button class="cmt-act" onclick="editComment(${i})" title="Редактировать">✎</button>`:''}
+        ${canDel?`<button class="cmt-act cmt-del" onclick="deleteComment(${i})" title="Удалить">✕</button>`:''}
+      </div>`:'';
+    return `
     <div class="cmt">
       <div class="cmt-av">${c.author.slice(0,2).toUpperCase()}</div>
       <div class="cmt-body">
-        <div class="cmt-head"><span class="cmt-name">${c.author}</span><span class="cmt-time">${c.time}</span></div>
+        <div class="cmt-head">
+          <span class="cmt-name">${c.author}</span><span class="cmt-time">${c.time}</span>
+          ${c.edited?'<span class="cmt-edited">(ред.)</span>':''}
+        </div>
         <div class="cmt-text">${c.text}</div>
       </div>
-    </div>`).join('');
+      ${actions}
+    </div>`;
+  }).join('');
+}
+async function deleteComment(idx){
+  if(!confirm('Удалить комментарий?'))return;
+  const dbArr=threadType==='note'?DB.notes:DB.guides;
+  const post=dbArr.find(x=>x.id===threadPostId);if(!post)return;
+  post.comments.splice(idx,1);
+  await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
+    method: 'PUT',
+    body: JSON.stringify(post)
+  }, { id: post.id });
+  renderComments(post);
+  toast('Комментарий удалён','ok');
+}
+async function editComment(idx){
+  const dbArr=threadType==='note'?DB.notes:DB.guides;
+  const post=dbArr.find(x=>x.id===threadPostId);if(!post)return;
+  const c=post.comments[idx];if(!c)return;
+  const newText=prompt('Редактировать комментарий:',c.text);
+  if(newText===null)return;
+  if(!newText.trim()){toast('Текст не может быть пустым','er');return}
+  c.text=newText.trim();
+  c.edited=true;
+  await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
+    method: 'PUT',
+    body: JSON.stringify(post)
+  }, { id: post.id });
+  renderComments(post);
+  toast('Комментарий обновлён','ok');
 }
 async function addComment(){
   const inp=document.getElementById('cmt-inp');
@@ -654,6 +713,8 @@ function renderGm(){
   fillGmChars('gm-kt-player','gm-kt-char');
   fillGmChars('gm-cer-player','gm-cer-char');
   renderTx();
+  // Гарантируем хотя бы одну пустую строку репутации
+  if(!document.querySelector('#rep-rows .rep-row'))addRepRow();
 }
 async function gmGivePoints(){
   const pname=document.getElementById('gm-pts-player').value;
@@ -675,18 +736,36 @@ async function gmApplyKt(){
   const cname=document.getElementById('gm-kt-char').value;
   const kt=parseInt(document.getElementById('gm-kt-val').value)||0;
   const os=parseInt(document.getElementById('gm-os-val').value)||0;
-  const rep=parseInt(document.getElementById('gm-rep-val').value)||0;
-  const fac=document.getElementById('gm-fac-inp').value.trim();
   if(!pname||pname.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(!cname||cname.startsWith('Выбрать')){toast('Выберите персонажа','er');return}
+
+  // Собираем все строки репутации
+  const repRows=[...document.querySelectorAll('#rep-rows .rep-row')]
+    .map(r=>({
+      fac:r.querySelector('.rep-fac').value.trim(),
+      val:parseInt(r.querySelector('.rep-val').value)||0,
+      note:r.querySelector('.rep-note').value.trim()
+    }))
+    .filter(r=>r.fac&&r.val!==0);
+
   const p=DB.players.find(x=>x.name===pname);
   const ch=p?.chars.find(c=>c.name===cname);
   if(ch){
     ch.kt[0]=Math.min(ch.kt[0]+kt,ch.kt[1]);ch.os+=os;
     ch.rep=ch.rep||[];
-    if(rep&&fac){
-      const ef=ch.rep.find(r=>r.fac===fac);
-      if(ef)ef.val+=rep;else ch.rep.push({fac,val:rep});
+    // Применяем каждую репутацию
+    for(const r of repRows){
+      const ef=ch.rep.find(x=>x.fac===r.fac);
+      if(ef)ef.val+=r.val;
+      else ch.rep.push({fac:r.fac,val:r.val,note:r.note});
+      // Создаём фракцию, если её ещё нет
+      if(!DB.factions.find(f=>f.name===r.fac)){
+        DB.factions.push({name:r.fac,color:'#A78BFA'});
+        await apiRequest('/factions',{
+          method:'POST',
+          body:JSON.stringify({name:r.fac,color:'#A78BFA'})
+        });
+      }
     }
     if(ch.kt[0]>=ch.kt[1]){ch.level++;ch.kt=[0,8+Math.floor(ch.level/4)*2];await addLog('level','⬆',`<span class="li-pl">${cname}</span> достиг <strong>${ch.level} уровня</strong>!`);}
   }
@@ -694,20 +773,22 @@ async function gmApplyKt(){
     method: 'PUT',
     body: JSON.stringify(p)
   }, { id: p.id });
-  if(fac&&!DB.factions.find(f=>f.name===fac)){
-    DB.factions.push({name:fac,color:'#A78BFA'});
-    await apiRequest('/factions', {
-      method: 'POST',
-      body: JSON.stringify({name:fac,color:'#A78BFA'})
-    });
-  }
+
+  // Логируем
   let logParts=[];
-  if(kt)logParts.push(`+${kt} КТ`);if(os)logParts.push(`+${os} ОС`);
-  if(rep&&fac)logParts.push(`+${rep} репутации [<span class="li-fac">${fac}</span>]`);
+  if(kt)logParts.push(`+${kt} КТ`);
+  if(os)logParts.push(`+${os} ОС`);
+  for(const r of repRows){
+    const noteStr=r.note?` <em style="color:var(--txt-s)">(${r.note})</em>`:'';
+    logParts.push(`+${r.val} репутации [<span class="li-fac">${r.fac}</span>]${noteStr}`);
+  }
   await addLog('level','⬆',`<span class="li-pl">${cname}</span> (${pname}): ${logParts.join(', ')||'без изменений'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`Применено для ${cname}`,'ok');
-  ['gm-kt-val','gm-os-val','gm-rep-val'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=''});
-  document.getElementById('gm-fac-inp').value='';
+  // Очищаем форму
+  document.getElementById('gm-kt-val').value='';
+  document.getElementById('gm-os-val').value='';
+  document.getElementById('rep-rows').innerHTML='';
+  addRepRow();
 }
 async function gmCertify(status){
   const pname=document.getElementById('gm-cer-player').value;
@@ -758,20 +839,50 @@ async function rejectTx(id){
   toast('Транзакция отклонена','er');renderTx();
 }
 
-/* ── Faction autocomplete ── */
-function facInput(){
-  const val=(document.getElementById('gm-fac-inp')?.value||'').toLowerCase();
-  const drop=document.getElementById('fac-drop');
+/* ── Reputation rows (multi-source) ── */
+function addRepRow(fac='', val='', note=''){
+  const wrap=document.getElementById('rep-rows');
+  const row=document.createElement('div');
+  row.className='rep-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 90px 1.4fr 28px;gap:6px;align-items:start;position:relative';
+  row.innerHTML=`
+    <div class="fac-wrap" style="position:relative">
+      <input class="inp rep-fac" placeholder="Фракция…" value="${fac.replace(/"/g,'&quot;')}" autocomplete="off"
+             oninput="facInputFor(this)" onfocus="facInputFor(this)" onblur="setTimeout(()=>hideFacFor(this),180)">
+      <div class="fac-drop rep-drop"></div>
+    </div>
+    <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100">
+    <input class="inp rep-note" placeholder="Примечание…" value="${note.replace(/"/g,'&quot;')}">
+    <button class="btn btn-x" style="padding:6px" title="Удалить" onclick="this.parentElement.remove()">✕</button>
+  `;
+  wrap.appendChild(row);
+}
+function facInputFor(input){
+  const val=(input.value||'').toLowerCase();
+  const drop=input.parentElement.querySelector('.rep-drop');
+  if(!drop)return;
   const matches=DB.factions.filter(f=>f.name.toLowerCase().includes(val));
   if(!matches.length||!val){drop.classList.remove('on');return}
   drop.innerHTML=matches.map(f=>`
-    <div class="fac-opt" onclick="selectFac('${f.name}')">
+    <div class="fac-opt" onclick="selectFacFor('${f.name.replace(/'/g,"\\'")}',this)">
       <div class="fac-dot" style="background:${f.color}"></div>${f.name}
     </div>`).join('');
   drop.classList.add('on');
 }
-function selectFac(name){document.getElementById('gm-fac-inp').value=name;hideFac();}
-function hideFac(){document.getElementById('fac-drop').classList.remove('on');}
+function selectFacFor(name,src){
+  const input=src.closest('.fac-wrap').querySelector('.rep-fac');
+  input.value=name;
+  hideFacFor(input);
+}
+function hideFacFor(input){
+  const drop=input.parentElement.querySelector('.rep-drop');
+  if(drop)drop.classList.remove('on');
+}
+
+/* ── Legacy faction autocomplete (kept for compatibility) ── */
+function facInput(){const i=document.getElementById('gm-fac-inp');if(i)facInputFor(i);}
+function selectFac(name){const i=document.getElementById('gm-fac-inp');if(i){i.value=name;hideFacFor(i);}}
+function hideFac(){const i=document.getElementById('gm-fac-inp');if(i)hideFacFor(i);}
 
 /* ══════════════
    LOGS + ANALYTICS
@@ -999,22 +1110,113 @@ function closeDrilldown(){
 /* Render players (placeholder) */
 function renderPlayers(){
   const g=document.getElementById('players-grid');
-  if(!DB.players.length){
-    g.innerHTML='<div class="emp"><div class="emp-ic">👥</div><h3>Нет игроков</h3></div>';
+  // Игрок видит только своего персонажа (по userId), ГМ видит всех
+  const list = currentUser?.role === 'gm'
+    ? DB.players
+    : DB.players.filter(p => p.userId === currentUser?.id || p.name === currentUser?.username);
+  if(!list.length){
+    g.innerHTML='<div class="emp"><div class="emp-ic">👥</div><h3>Нет персонажей</h3><p>Создайте своего первого персонажа</p></div>';
     return;
   }
-  g.innerHTML=DB.players.map(p=>`
+  g.innerHTML=list.map(p=>`
     <div class="card ic">
       <div class="ic-ph">👤</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
-        <div class="ic-ty">${p.discord}</div>
+        <div class="ic-ty">${p.discord||'—'}</div>
         <div class="ic-ft">
-          <span class="ip">${p.points} pts</span>
+          <span class="ip">${p.points||0} pts</span>
           <span class="iq">${p.chars?.length||0} персонажей</span>
         </div>
+        ${p.chars?.length ? `
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+            ${p.chars.map(c=>`
+              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px">
+                <div style="font-weight:600;color:var(--gold)">${c.name}</div>
+                <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}${c.verified?' · ✓':''}</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     </div>`).join('');
+}
+
+/* ── Create character ── */
+async function createCharacter(){
+  const name=document.getElementById('nc-name').value.trim();
+  const cls=document.getElementById('nc-class').value.trim();
+  const subclass=document.getElementById('nc-subclass').value.trim();
+  const level=parseInt(document.getElementById('nc-level').value)||1;
+  const ktMin=parseInt(document.getElementById('nc-kt-min').value)||0;
+  const ktMax=parseInt(document.getElementById('nc-kt-max').value)||0;
+  const os=parseInt(document.getElementById('nc-os').value)||0;
+  const desc=document.getElementById('nc-desc').value.trim();
+
+  if(!name){
+    toast('Введите имя персонажа','er');
+    return;
+  }
+
+  // Находим игрока, привязанного к текущему пользователю
+  let me=DB.players.find(p=>p.userId===currentUser?.id||p.name===currentUser?.username);
+  if(!me){
+    toast('Профиль игрока не найден','er');
+    return;
+  }
+  if(me.chars?.some(c=>c.name===name)){
+    toast('Персонаж с таким именем уже существует','er');
+    return;
+  }
+
+  const newChar={
+    name, class:cls, subclass,
+    level, kt:[ktMin,ktMax], os,
+    verified:false, rep:[],
+    desc, createdAt:new Date().toISOString().split('T')[0]
+  };
+
+  me.chars=me.chars||[];
+  me.chars.push(newChar);
+
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify({
+        name:me.name, discord:me.discord,
+        points:me.points, slots:me.slots,
+        chars:me.chars
+      })
+    },{id:me.id});
+
+    // Логируем создание персонажа (как ГМ-операцию — игрок может читать логи,
+    // но не создавать. Поэтому лог создаём от имени системы через GM-эндпоинт
+    // только если текущий пользователь — ГМ. Иначе пропускаем лог.)
+    if(currentUser?.role==='gm'){
+      try{
+        await apiRequest('/logs',{
+          method:'POST',
+          body:JSON.stringify({
+            type:'level', icon:'🆕',
+            text:`Создан персонаж <span class="li-it">«${name}»</span> (${cls||'—'}). Игрок: <span class="li-pl">${me.name}</span>.`
+          })
+        });
+      }catch{}
+    }
+
+    closeModal('m-new-char');
+    renderPlayers();
+    toast('Персонаж создан!','ok');
+
+    // Очищаем форму
+    ['nc-name','nc-class','nc-subclass','nc-desc'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('nc-level').value='1';
+    document.getElementById('nc-kt-min').value='0';
+    document.getElementById('nc-kt-max').value='0';
+    document.getElementById('nc-os').value='0';
+  }catch(e){
+    toast(e.message||'Ошибка создания персонажа','er');
+  }
 }
 
 /* ── Modal helpers ── */

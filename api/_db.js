@@ -1,11 +1,7 @@
 const { createClient } = require('@libsql/client');
 
-// libSQL возвращает INTEGER-колонки как BigInt.
-// Конвертируем в Number для корректной JSON-сериализации.
 BigInt.prototype.toJSON = function () { return Number(this); };
 
-// Для Vercel (production): используем Turso (libSQL).
-// Для локальной разработки: используем локальный файл SQLite.
 const dbUrl = process.env.TURSO_DATABASE_URL || 'file:./server/graal.db';
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
@@ -15,8 +11,6 @@ const db = createClient(
     : { url: dbUrl }
 );
 
-// Схема БД — каждый CREATE выполняется отдельно, чтобы Turso вернул
-// точную ошибку, если какой-то statement некорректен.
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,7 +87,6 @@ const SCHEMA_STATEMENTS = [
   )`
 ];
 
-// Начальные данные
 async function seedData() {
   const itemsCount = (await db.execute('SELECT COUNT(*) as count FROM items')).rows[0].count;
   const notesCount = (await db.execute('SELECT COUNT(*) as count FROM notes')).rows[0].count;
@@ -186,7 +179,6 @@ async function seedData() {
   }
 }
 
-// Ленивая инициализация (вызывается перед первым запросом)
 let initPromise = null;
 function ensureInit() {
   if (!initPromise) {
@@ -196,19 +188,15 @@ function ensureInit() {
           await db.execute(SCHEMA_STATEMENTS[i]);
         } catch (e) {
           console.error('Schema stmt ' + i + ' failed: ' + e.message);
-          // Не пробрасываем — таблица уже может существовать.
         }
       }
-      // Seed обёрнут в try/catch на верхнем уровне: если данные уже есть
-      // (UNIQUE constraint) или произошла гонка — игнорируем. Лучше
-      // показать пустой список, чем 500.
       try {
         await seedData();
       } catch (e) {
         console.error('seedData failed (ignored): ' + e.message);
       }
     })().catch(err => {
-      initPromise = null; // сбрасываем, чтобы можно было повторить
+      initPromise = null; 
       throw err;
     });
   }
