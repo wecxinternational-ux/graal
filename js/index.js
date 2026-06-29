@@ -162,6 +162,19 @@ function toggleSidebar(force){
   sb.classList.toggle('open',open);
   bd.classList.toggle('open',open);
 }
+/* Раскрытие фильтров на мобайле */
+function toggleFilters(nsfId){
+  const nsf=document.getElementById(nsfId);
+  if(!nsf)return;
+  nsf.classList.toggle('open');
+}
+/* Обновление счётчика активных фильтров */
+function updateFilterCount(nsfId,activeCount){
+  const el=document.getElementById(nsfId+'-count');
+  if(!el)return;
+  el.textContent=activeCount>0?activeCount:'';
+  el.style.display=activeCount>0?'inline-block':'none';
+}
 /* Закрытие меню при выборе пункта */
 document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.nav-a').forEach(el=>{
@@ -511,7 +524,12 @@ function buildTagsFilter(filterId,renderFn,existingTags=[]){
   c.querySelectorAll('.tc').forEach(tc=>{
     tc.addEventListener('click',()=>{
       c.querySelectorAll('.tc').forEach(x=>x.classList.remove('on'));
-      tc.classList.add('on');renderFn();
+      tc.classList.add('on');
+      // Обновляем счётчик активных фильтров (кроме "Все")
+      const activeTag=tc.dataset.tag;
+      const nsfId=filterId==='note-tags-filter'?'note-nsf':filterId==='guide-tags-filter'?'guide-nsf':null;
+      if(nsfId)updateFilterCount(nsfId,activeTag&&activeTag!=='Все'?1:0);
+      renderFn();
     });
   });
 }
@@ -527,6 +545,9 @@ function initNotes(){
 function renderNotes(){
   const q=(document.getElementById('note-q')?.value||'').toLowerCase();
   const activeTag=document.querySelector('#note-tags-filter .tc.on')?.dataset.tag||'Все';
+  // Счётчик активных фильтров для мобильной кнопки
+  const cnt=(q?1:0)+(activeTag!=='Все'?1:0);
+  updateFilterCount('note-nsf',cnt);
   const list=DB.notes.filter(n=>{
     const mq=!q||n.title.toLowerCase().includes(q)||n.content.replace(/<[^>]+>/g,'').toLowerCase().includes(q);
     const mt=activeTag==='Все'||n.tags.includes(activeTag);
@@ -590,6 +611,9 @@ function initGuide(){
 function renderGuide(){
   const q=(document.getElementById('guide-q')?.value||'').toLowerCase();
   const activeTag=document.querySelector('#guide-tags-filter .tc.on')?.dataset.tag||'Все';
+  // Счётчик активных фильтров для мобильной кнопки
+  const cnt=(q?1:0)+(activeTag!=='Все'?1:0);
+  updateFilterCount('guide-nsf',cnt);
   const list=DB.guides.filter(n=>{
     const mq=!q||n.title.toLowerCase().includes(q)||n.content.replace(/<[^>]+>/g,'').toLowerCase().includes(q);
     const mt=activeTag==='Все'||n.tags.includes(activeTag);

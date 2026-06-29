@@ -155,9 +155,16 @@
     <button class="btn btn-p gm-only" onclick="openModal('m-new-note')">+ Новая статья</button>
   </div>
   <div class="nl">
-    <div class="nsf">
-      <input class="inp" id="note-q" placeholder="Поиск…" oninput="renderNotes()">
-      <div class="nfl" id="note-tags-filter"></div>
+    <div class="nsf" id="note-nsf">
+      <button class="nsf-toggle" onclick="toggleFilters('note-nsf')">
+        <span>Фильтры</span>
+        <span class="nsf-count" id="note-nsf-count"></span>
+        <span class="nsf-arrow">▾</span>
+      </button>
+      <div class="nsf-content">
+        <input class="inp" id="note-q" placeholder="Поиск…" oninput="renderNotes()">
+        <div class="nfl" id="note-tags-filter"></div>
+      </div>
     </div>
     <div class="posts" id="notes-list"></div>
   </div>
@@ -303,9 +310,16 @@
     <button class="btn btn-p gm-only" onclick="openModal('m-new-guide')">+ Новая запись</button>
   </div>
   <div class="nl">
-    <div class="nsf">
-      <input class="inp" id="guide-q" placeholder="Поиск…" oninput="renderGuide()">
-      <div class="nfl" id="guide-tags-filter"></div>
+    <div class="nsf" id="guide-nsf">
+      <button class="nsf-toggle" onclick="toggleFilters('guide-nsf')">
+        <span>Фильтры</span>
+        <span class="nsf-count" id="guide-nsf-count"></span>
+        <span class="nsf-arrow">▾</span>
+      </button>
+      <div class="nsf-content">
+        <input class="inp" id="guide-q" placeholder="Поиск…" oninput="renderGuide()">
+        <div class="nfl" id="guide-tags-filter"></div>
+      </div>
     </div>
     <div class="posts" id="guide-list"></div>
   </div>
