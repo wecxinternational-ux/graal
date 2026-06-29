@@ -1247,12 +1247,12 @@ async function gmApplyKt(){
   const ch=p?.chars.find(c=>c.name===cname);
   if(ch&&!ch.verified){toast('Персонаж ещё не заверён. Заверьте его в панели «Заверить персонажа»','er');return}
 
-  // Собираем все строки репутации
+  // Собираем все строки репутации (примечание убрано из UI)
   const repRows=[...document.querySelectorAll('#rep-rows .rep-row')]
     .map(r=>({
       fac:r.querySelector('.rep-fac').value.trim(),
       val:parseInt(r.querySelector('.rep-val').value)||0,
-      note:r.querySelector('.rep-note').value.trim()
+      note:''
     }))
     .filter(r=>r.fac&&r.val!==0);
 
@@ -1501,7 +1501,7 @@ function addRepRow(fac='', val='', note=''){
   const wrap=document.getElementById('rep-rows');
   const row=document.createElement('div');
   row.className='rep-row';
-  row.style.cssText='display:grid;grid-template-columns:1fr 90px 1.4fr 28px;gap:6px;align-items:start;position:relative';
+  row.style.cssText='display:grid;grid-template-columns:1fr 90px 28px;gap:6px;align-items:start;position:relative';
   row.innerHTML=`
     <div class="fac-wrap" style="position:relative">
       <input class="inp rep-fac" placeholder="Фракция…" value="${fac.replace(/"/g,'&quot;')}" autocomplete="off"
@@ -1509,7 +1509,6 @@ function addRepRow(fac='', val='', note=''){
       <div class="fac-drop rep-drop"></div>
     </div>
     <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100">
-    <input class="inp rep-note" placeholder="Примечание…" value="${note.replace(/"/g,'&quot;')}">
     <button class="btn btn-x" style="padding:6px" title="Удалить" onclick="this.parentElement.remove()">✕</button>
   `;
   wrap.appendChild(row);
