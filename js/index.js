@@ -639,15 +639,20 @@ function renderContent(html){
   return html;
 }
 /* Превью для карточки статьи в списке: показывает первые картинки (миниатюрой)
-   и обрезанный текст без HTML-тегов. */
+   и обрезанный текст без HTML-тегов и без URL-ов картинок. */
 function renderPreview(html){
   if(!html)return '';
   // Превращаем URL картинок в <img> (как в renderContent)
   let withImgs=renderContent(html);
   // Оставляем только <img> и текст, остальные теги вырезаем
   const imgs=[...withImgs.matchAll(/<img[^>]*>/gi)].map(m=>m[0]).slice(0,3);
-  // Текст без тегов, обрезаем до 180 символов
-  const text=html.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim().slice(0,180);
+  // Убираем из текста URL картинок (png/jpg/...) и прочие длинные ссылки
+  const text=html
+    .replace(/<[^>]+>/g,' ')
+    .replace(/https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif)/gi,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,180);
   const textHtml=text?(text+(html.length>180?'…':'')):'';
   if(!imgs.length)return textHtml;
   return `<div class="prev-thumbs">${imgs.map(i=>i.replace('class="post-img"','class="prev-thumb"')).join('')}</div>${textHtml?`<div class="prev-text">${textHtml}</div>`:''}`;
