@@ -738,6 +738,8 @@ function openNewSubGuide(){
   // Ограничение: подруководства до 3-го порядка
   const lvl=guideLevel(threadPostId);
   if(lvl>=3){toast('Допускается не более 3 уровней вложенности','er');return}
+  // Сначала сбрасываем модалку, потом устанавливаем parentId (иначе reset его обнулит)
+  resetGuideModal();
   ngParentId=threadPostId;
   const parentTitle=DB.guides.find(g=>g.id===threadPostId)?.title||'';
   const titleEl=document.getElementById('ng-modal-title');
@@ -754,7 +756,6 @@ function openNewSubGuide(){
   }
   hint.textContent='↳ Раздел: '+parentTitle+' (уровень '+(lvl+1)+' из 3)';
   hint.style.display='block';
-  resetGuideModal();
   openModal('m-new-guide');
 }
 
