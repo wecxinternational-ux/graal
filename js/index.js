@@ -523,7 +523,7 @@ function renderNotes(){
         <div class="post-ti">${n.title}</div>
         <div class="post-badges">${n.isPublic?'<span class="pub-badge">Публичная</span>':''}</div>
       </div>
-      <div class="post-ex">${n.content.replace(/<[^>]+>/g,'')}</div>
+      <div class="post-ex">${renderPreview(n.content)}</div>
       <div class="post-ft">
         ${n.tags.map(t=>`<span class="ntag">${t}</span>`).join('')}
         <span class="post-meta">${n.author} · ${n.date}</span>
@@ -583,7 +583,7 @@ function renderGuide(){
   el.innerHTML=list.map(n=>`
     <div class="post" onclick="openThread(${n.id},'guide')">
       <div class="post-hd"><div class="post-ti">${n.title}</div></div>
-      <div class="post-ex">${n.content.replace(/<[^>]+>/g,'')}</div>
+      <div class="post-ex">${renderPreview(n.content)}</div>
       <div class="post-ft">
         ${n.tags.map(t=>`<span class="ntag">${t}</span>`).join('')}
         <span class="post-meta">${n.author} · ${n.date}</span>
@@ -637,6 +637,20 @@ function renderContent(html){
   // 3) Добавляем target=_blank всем оставшимся ссылкам
   html=html.replace(/<a(?![^>]*target=)/gi,'<a target="_blank" rel="noopener"');
   return html;
+}
+/* Превью для карточки статьи в списке: показывает первые картинки (миниатюрой)
+   и обрезанный текст без HTML-тегов. */
+function renderPreview(html){
+  if(!html)return '';
+  // Превращаем URL картинок в <img> (как в renderContent)
+  let withImgs=renderContent(html);
+  // Оставляем только <img> и текст, остальные теги вырезаем
+  const imgs=[...withImgs.matchAll(/<img[^>]*>/gi)].map(m=>m[0]).slice(0,3);
+  // Текст без тегов, обрезаем до 180 символов
+  const text=html.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim().slice(0,180);
+  const textHtml=text?(text+(html.length>180?'…':'')):'';
+  if(!imgs.length)return textHtml;
+  return `<div class="prev-thumbs">${imgs.map(i=>i.replace('class="post-img"','class="prev-thumb"')).join('')}</div>${textHtml?`<div class="prev-text">${textHtml}</div>`:''}`;
 }
 function openThread(id,type){
   const db=type==='note'?DB.notes:DB.guides;
