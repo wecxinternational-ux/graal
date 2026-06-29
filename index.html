@@ -411,7 +411,13 @@
     <div class="mb">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="fg"><label>Заголовок</label><input class="inp" id="nn-title" placeholder="Название статьи"></div>
-        <div class="fg"><label>Теги</label><div class="tags-sel" id="nn-tags-sel"></div></div>
+        <div class="fg"><label>Теги</label>
+          <div class="tags-sel" id="nn-tags-sel"></div>
+          <div class="tag-add">
+            <input class="inp" id="nn-tag-inp" placeholder="Свой тег…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomTag('nn-tags-sel','nn-tag-inp');}">
+            <button class="btn btn-g" type="button" onclick="addCustomTag('nn-tags-sel','nn-tag-inp')">+ Тег</button>
+          </div>
+        </div>
         <div class="fg">
           <label>Содержание</label>
           <div id="nn-etb"></div>
@@ -441,7 +447,13 @@
     <div class="mb">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="fg"><label>Заголовок</label><input class="inp" id="ng-title" placeholder="Название записи"></div>
-        <div class="fg"><label>Теги</label><div class="tags-sel" id="ng-tags-sel"></div></div>
+        <div class="fg"><label>Теги</label>
+          <div class="tags-sel" id="ng-tags-sel"></div>
+          <div class="tag-add">
+            <input class="inp" id="ng-tag-inp" placeholder="Свой тег…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomTag('ng-tags-sel','ng-tag-inp');}">
+            <button class="btn btn-g" type="button" onclick="addCustomTag('ng-tags-sel','ng-tag-inp')">+ Тег</button>
+          </div>
+        </div>
         <div class="fg">
           <label>Содержание</label>
           <div id="ng-etb"></div>

@@ -334,6 +334,13 @@ textarea.inp{resize:vertical;min-height:80px}
 .tag-ck label{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--txt-s);cursor:pointer;padding:4px 10px;border-radius:6px;border:1px solid var(--bdr);background:var(--bg-s);transition:all .15s}
 .tag-ck label:hover{border-color:var(--bdr-s);color:var(--txt)}
 .tag-ck input{cursor:pointer;accent-color:var(--pur)}
+.tag-ck.tag-custom{display:flex;align-items:center;gap:0}
+.tag-ck.tag-custom label{border-style:dashed;border-color:var(--pur-g)}
+.tag-rm{background:none;border:none;cursor:pointer;color:var(--txt-m);font-size:10px;padding:2px 4px;margin-left:-4px;border-radius:0 6px 6px 0}
+.tag-rm:hover{color:#ef4444}
+.tag-add{display:flex;gap:6px;margin-top:8px}
+.tag-add .inp{flex:1;font-size:12px;padding:6px 10px}
+.tag-add .btn{padding:6px 12px;font-size:12px}
 .tog-label{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--txt-s);cursor:pointer}
 .tog-label input{accent-color:var(--pur);cursor:pointer}
 

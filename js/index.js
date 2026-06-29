@@ -459,16 +459,37 @@ function renderAttList(pfx){
 function removeAtt(pfx,i){noteAtts[pfx].splice(i,1);renderAttList(pfx);}
 
 /* Tags checkboxes */
-function buildTagsSelect(containerId){
+function buildTagsSelect(containerId, extra=[]){
   const c=document.getElementById(containerId);if(!c)return;
-  c.innerHTML=ALL_TAGS.map(t=>`<div class="tag-ck"><label><input type="checkbox" value="${t}"> ${t}</label></div>`).join('');
+  const all=[...new Set([...ALL_TAGS,...extra])];
+  c.innerHTML=all.map(t=>`<div class="tag-ck"><label><input type="checkbox" value="${t}"> ${t}</label></div>`).join('');
 }
 function getSelectedTags(containerId){
   return [...document.querySelectorAll(`#${containerId} input:checked`)].map(el=>el.value);
 }
-function buildTagsFilter(filterId,renderFn){
+/* Custom tag input — добавляет новый тег-чекбокс в контейнер */
+function addCustomTag(containerId, inputId){
+  const inp=document.getElementById(inputId);
+  if(!inp)return;
+  const val=inp.value.trim();
+  if(!val){toast('Введите название тега','er');return}
+  if(val.length>32){toast('Тег слишком длинный (макс. 32)','er');return}
+  const c=document.getElementById(containerId);if(!c)return;
+  // Проверяем дубли
+  const existing=[...c.querySelectorAll('input[type=checkbox]')].map(el=>el.value);
+  if(existing.includes(val)){toast('Такой тег уже есть','er');return}
+  // Создаём чекбокс, сразу отмеченный
+  const div=document.createElement('div');
+  div.className='tag-ck tag-custom';
+  div.innerHTML=`<label><input type="checkbox" value="${val.replace(/"/g,'&quot;')}" checked> ${val}</label>
+    <button type="button" class="tag-rm" title="Удалить тег" onclick="this.parentElement.remove()">✕</button>`;
+  c.appendChild(div);
+  inp.value='';
+  inp.focus();
+}
+function buildTagsFilter(filterId,renderFn,existingTags=[]){
   const c=document.getElementById(filterId);if(!c)return;
-  const tags=['Все',...ALL_TAGS];
+  const tags=['Все',...new Set([...ALL_TAGS,...existingTags])];
   c.innerHTML=tags.map(t=>`<div class="tc${t==='Все'?' on':''}" data-tag="${t}">${t}</div>`).join('');
   c.querySelectorAll('.tc').forEach(tc=>{
     tc.addEventListener('click',()=>{
@@ -483,7 +504,7 @@ function buildTagsFilter(filterId,renderFn){
 ══════════════ */
 function initNotes(){
   buildTagsSelect('nn-tags-sel');
-  buildTagsFilter('note-tags-filter',renderNotes);
+  buildTagsFilter('note-tags-filter',renderNotes,DB.notes.flatMap(n=>n.tags||[]));
   initToolbar('nn-etb','nn-editor');
 }
 function renderNotes(){
@@ -530,6 +551,9 @@ async function saveNote(){
   noteAtts.nn=[];
   toast(`Статья «${title}» сохранена`,'ok');
   closeModal('m-new-note');
+  // Обновляем фильтр тегов, чтобы новые кастомные теги появились
+  buildTagsFilter('note-tags-filter',renderNotes,DB.notes.flatMap(n=>n.tags||[]));
+  renderNotes();
   document.getElementById('nn-title').value='';
   document.getElementById('nn-editor').innerHTML='';
   document.getElementById('nn-public').checked=false;
@@ -543,7 +567,7 @@ async function saveNote(){
 ══════════════ */
 function initGuide(){
   buildTagsSelect('ng-tags-sel');
-  buildTagsFilter('guide-tags-filter',renderGuide);
+  buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
   initToolbar('ng-etb','ng-editor');
 }
 function renderGuide(){
@@ -586,6 +610,9 @@ async function saveGuide(){
   noteAtts.ng=[];
   toast(`Запись «${title}» сохранена`,'ok');
   closeModal('m-new-guide');
+  // Обновляем фильтр тегов
+  buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
+  renderGuide();
   document.getElementById('ng-title').value='';
   document.getElementById('ng-editor').innerHTML='';
   document.getElementById('ng-att-list').innerHTML='';
