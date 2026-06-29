@@ -162,17 +162,19 @@ textarea.inp{resize:vertical;min-height:80px}
 .post-tree{background:transparent;border:none;padding:0;margin-bottom:8px}
 .post-tree>.post-card{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);transition:all .2s;cursor:pointer;overflow:hidden}
 .post-tree>.post-card:hover{border-color:var(--bdr-s);transform:translateX(2px)}
+.post-card{background:var(--bg-h);border:1px solid var(--bdr-s);border-radius:var(--rl);transition:all .2s;cursor:pointer;overflow:hidden}
+.post-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(0,0,0,.35);transform:translateY(-1px)}
 .post-card .post-hd{display:flex;align-items:center;gap:8px;padding:14px 18px 8px}
 .post-card .post-ti{font-family:var(--fd);font-size:14px;font-weight:600;line-height:1.3;flex:1}
 .post-card .post-ex{padding:0 18px;margin-bottom:10px}
 .post-card .post-ft{padding:8px 18px;border-top:1px solid var(--bdr)}
 .sub-tree{margin-top:6px;padding-left:14px;border-left:2px dashed var(--bdr);display:flex;flex-direction:column;gap:6px}
-.sub-tree .post-card{background:var(--bg-h);border-radius:10px}
-.sub-tree .post-tree>.post-card{background:var(--bg-h)}
+.sub-tree .post-card{background:var(--bg);border-radius:10px}
+.sub-tree .post-tree>.post-card{background:var(--bg)}
 .lvl-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;letter-spacing:.05em;flex-shrink:0}
 .lvl-2{background:rgba(96,165,250,.15);color:#60A5FA}
 .lvl-3{background:rgba(168,85,247,.15);color:#a855f7}
-.kids-count{font-size:10px;color:var(--txt-m);background:var(--bg-h);padding:2px 8px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+.kids-count{font-size:10px;color:var(--txt-m);background:var(--bg);padding:2px 8px;border-radius:8px;white-space:nowrap;flex-shrink:0;border:1px solid var(--bdr)}
 
 /* Breadcrumbs in thread view */
 .crumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px;color:var(--txt-m);width:100%;margin-bottom:4px}
@@ -182,13 +184,13 @@ textarea.inp{resize:vertical;min-height:80px}
 .crumb-sep{color:var(--txt-m);opacity:.6}
 
 /* ── Inline subguides section (внутри открытого руководства) ── */
-.subguide-section{margin-top:28px;padding-top:18px;border-top:2px dashed var(--bdr)}
+.subguide-section{margin-top:28px;padding:18px 16px;background:var(--bg);border:1px solid var(--bdr);border-radius:12px}
 .subguide-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .subguide-header h4{font-family:var(--fd);font-size:15px;font-weight:700;color:var(--gold);margin:0}
 .subguide-lvl{font-size:10px;color:var(--txt-m);background:var(--bg-h);padding:3px 8px;border-radius:6px;letter-spacing:.04em}
 .subguide-list{display:flex;flex-direction:column;gap:10px}
-.subguide-item{display:flex;align-items:stretch;gap:12px;background:var(--bg-e);border:1px solid var(--bdr);border-left:3px solid var(--pur);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .18s}
-.subguide-item:hover{border-color:var(--bdr-s);border-left-color:var(--gold);transform:translateX(3px);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.subguide-item{display:flex;align-items:stretch;gap:12px;background:var(--bg-h);border:1px solid var(--bdr-s);border-left:4px solid var(--pur);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .18s}
+.subguide-item:hover{border-color:var(--gold);border-left-color:var(--gold);transform:translateX(3px);box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .subguide-arrow{color:var(--pur);font-size:16px;font-weight:700;flex-shrink:0;align-self:flex-start;line-height:1.2}
 .subguide-body{flex:1;min-width:0}
 .subguide-title{font-family:var(--fd);font-size:14px;font-weight:600;color:var(--txt);margin-bottom:4px}
