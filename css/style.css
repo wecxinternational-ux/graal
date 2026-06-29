@@ -360,8 +360,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .role-name{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--txt);margin-bottom:2px}
 .role-desc{font-size:11px;color:var(--txt-s);line-height:1.4}
 
-/* ── Role-based UI visibility ── */
-body.role-gm .player-only{display:none}
+/* ── Role-based UI visibility ──
+   ГМ видит и инструменты мастера, и инструменты игрока (полный доступ).
+   Игрок видит только инструменты игрока. */
 body.role-player .gm-only{display:none}
 body.role-player .nav-sec.gm-only{display:none}
 .emp-ic{font-size:44px;margin-bottom:10px;opacity:.45}
