@@ -491,9 +491,9 @@ body.role-player .nav-sec.gm-only{display:none}
 .rep-note{color:var(--txt-m);font-style:italic;font-size:11px}
 
 /* Larger reputation rows inside the big GM card */
-.gmc-lg .rep-row{grid-template-columns:1fr 110px 1.4fr 36px!important;gap:8px!important}
+.gmc-lg .rep-row{grid-template-columns:1fr 80px 30px!important;gap:8px!important}
 .gmc-lg .rep-row .inp{font-size:14px;padding:11px 13px}
-.gmc-lg .rep-row .btn-x{padding:8px!important}
+.gmc-lg .rep-row .btn-x{padding:6px 0!important;font-size:11px!important;line-height:1!important}
 .char-desc{font-size:13px;color:var(--txt-s);padding:8px 12px;background:var(--bg-h);border-radius:8px;font-style:italic;line-height:1.5}
 .char-edit{margin-top:12px;padding-top:12px;border-top:1px dashed var(--bdr)}
 
@@ -641,7 +641,7 @@ body.role-player .nav-sec.gm-only{display:none}
   /* КТ/ОС/Rep — каждое поле на отдельной строке для удобства ввода */
   .gmc-lg .ktg{grid-template-columns:1fr;gap:12px}
   /* Rep row: фракция и примечание крупные, поле очков — узкое */
-  .gmc-lg .rep-row{grid-template-columns:1fr 70px 1fr 36px!important;gap:8px!important}
+  .gmc-lg .rep-row{grid-template-columns:1fr 70px 30px!important;gap:8px!important}
   .gmc-lg .rep-row .inp{font-size:15px;padding:12px 12px}
   .gmc-lg .rep-val{text-align:center}
   .gmc-lg .gmc-apply{padding:14px;font-size:16px}

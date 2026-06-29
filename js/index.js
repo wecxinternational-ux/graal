@@ -1504,15 +1504,15 @@ function addRepRow(fac='', val='', note=''){
   const wrap=document.getElementById('rep-rows');
   const row=document.createElement('div');
   row.className='rep-row';
-  row.style.cssText='display:grid;grid-template-columns:1fr 90px 28px;gap:6px;align-items:start;position:relative';
+  row.style.cssText='display:grid;grid-template-columns:1fr 80px 30px;gap:8px;align-items:start;position:relative';
   row.innerHTML=`
     <div class="fac-wrap" style="position:relative">
       <input class="inp rep-fac" placeholder="Фракция…" value="${fac.replace(/"/g,'&quot;')}" autocomplete="off"
              oninput="facInputFor(this)" onfocus="facInputFor(this)" onblur="setTimeout(()=>hideFacFor(this),180)">
       <div class="fac-drop rep-drop"></div>
     </div>
-    <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100">
-    <button class="btn btn-x" style="padding:6px" title="Удалить" onclick="this.parentElement.remove()">✕</button>
+    <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100" style="text-align:center">
+    <button class="btn btn-x" style="padding:6px 0;font-size:11px;line-height:1" title="Удалить" onclick="this.parentElement.remove()">✕</button>
   `;
   wrap.appendChild(row);
 }
