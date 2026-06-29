@@ -1811,7 +1811,8 @@ function openPlayerDetail(pid){
   if(!p){toast('Игрок не найден','er');return}
   currentPlayerId=pid;
   const isGm=currentUser?.role==='gm';
-  const canManage=isGm||p.userId===currentUser?.id||p.name===currentUser?.username;
+  const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
+  const canManage=isGm||isOwnProfile;
 
   document.getElementById('pd-name').textContent=p.name;
   document.getElementById('pd-discord').textContent=p.discord||'—';
@@ -1920,8 +1921,9 @@ function renderPlayerRequests(p){
   const box=document.getElementById('pd-requests');
   const reqBtn=document.getElementById('pd-request-btn');
   if(!box)return;
-  // ГМ не отправляет запросы себе, кнопку скрываем
-  if(reqBtn)reqBtn.style.display=currentUser?.role==='gm'?'none':'block';
+  // Кнопку показываем только в собственном профиле (включая ГМа, который смотрит свой профиль)
+  const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
+  if(reqBtn)reqBtn.style.display=isOwnProfile?'block':'none';
   const myReqs=(DB.transactions||[]).filter(t=>t.player===p.name);
   if(!myReqs.length){box.innerHTML='';return}
   box.innerHTML=`
