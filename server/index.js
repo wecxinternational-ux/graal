@@ -332,28 +332,29 @@ app.get('/api/guides', async (req, res) => {
 });
 
 app.post('/api/guides', authenticateToken, async (req, res) => {
-  const {title, tags, content, author, date, atts, comments} = req.body;
+  const {title, tags, content, author, date, atts, comments, parentId} = req.body;
   const result = await db.execute({
-    sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       title, JSON.stringify(tags || []), content, author || req.user.username,
       date || new Date().toISOString().split('T')[0],
-      JSON.stringify(atts || []), JSON.stringify(comments || [])
+      JSON.stringify(atts || []), JSON.stringify(comments || []),
+      parentId ?? null
     ]
   });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body });
+  res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null });
 });
 
 app.put('/api/guides/:id', authenticateToken, async (req, res) => {
   const {id} = req.params;
-  const {title, tags, content, author, date, atts, comments} = req.body;
+  const {title, tags, content, author, date, atts, comments, parentId} = req.body;
   await db.execute({
-    sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
+    sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?
           WHERE id=?`,
     args: [
       title, JSON.stringify(tags), content, author, date,
-      JSON.stringify(atts), JSON.stringify(comments), id
+      JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, id
     ]
   });
   res.json({ success: true });
@@ -432,26 +433,43 @@ app.post('/api/factions', authenticateToken, async (req, res) => {
 });
 
 // TRANSACTIONS
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/transactions', authenticateToken, async (req, res) => {
   const result = await db.execute('SELECT * FROM transactions ORDER BY id DESC');
-  res.json(result.rows);
+  if (req.user?.role === 'gm') return res.json(result.rows);
+  res.json(result.rows.filter(t => t.player === req.user.username));
 });
 
 app.post('/api/transactions', authenticateToken, async (req, res) => {
-  const {player, desc, cost, status} = req.body;
+  const {player, desc, cost, status, type} = req.body;
+  const txType = type === 'request' ? 'request' : 'transaction';
+  // Игроки могут создавать только текстовые запросы
+  if (txType === 'transaction' && req.user?.role !== 'gm') {
+    return res.status(403).json({ error: 'Только ГМ может создавать транзакции с очками' });
+  }
+  if (txType === 'request') {
+    if (!desc || !desc.trim()) {
+      return res.status(400).json({ error: 'Введите текст запроса' });
+    }
+    const playerName = req.user?.role === 'gm' ? (player || req.user.username) : req.user.username;
+    const result = await db.execute({
+      sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
+      args: [playerName, desc.trim(), cost || 0, 'pending', 'request']
+    });
+    return res.json({ id: Number(result.lastInsertRowid), player: playerName, desc: desc.trim(), cost: cost || 0, status: 'pending', type: 'request' });
+  }
   const result = await db.execute({
-    sql: 'INSERT INTO transactions (player, "desc", cost, status) VALUES (?, ?, ?, ?)',
-    args: [player, desc, cost, status || 'pending']
+    sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
+    args: [player, desc, cost, status || 'pending', 'transaction']
   });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body });
+  res.json({ id: Number(result.lastInsertRowid), player, desc, cost, status: status || 'pending', type: 'transaction' });
 });
 
-app.put('/api/transactions/:id', authenticateToken, async (req, res) => {
+app.put('/api/transactions/:id', authenticateToken, requireGm, async (req, res) => {
   const {id} = req.params;
-  const {player, desc, cost, status} = req.body;
+  const {player, desc, cost, status, type} = req.body;
   await db.execute({
-    sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=? WHERE id=?',
-    args: [player, desc, cost, status, id]
+    sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=?, type=? WHERE id=?',
+    args: [player, desc, cost, status, type || 'transaction', id]
   });
   res.json({ success: true });
 });

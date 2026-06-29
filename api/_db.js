@@ -53,7 +53,8 @@ const SCHEMA_STATEMENTS = [
     author TEXT,
     date TEXT,
     atts TEXT DEFAULT '[]',
-    comments TEXT DEFAULT '[]'
+    comments TEXT DEFAULT '[]',
+    parentId INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +84,8 @@ const SCHEMA_STATEMENTS = [
     player TEXT,
     "desc" TEXT,
     cost INTEGER,
-    status TEXT DEFAULT 'pending'
+    status TEXT DEFAULT 'pending',
+    type TEXT DEFAULT 'transaction'
   )`,
   `CREATE TABLE IF NOT EXISTS gm_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,13 +202,31 @@ function ensureInit() {
           console.error('Schema stmt ' + i + ' failed: ' + e.message);
         }
       }
+      // Миграция: добавляем колонку type в существующие БД (безопасно, если уже есть)
+      try {
+        const cols = (await db.execute('PRAGMA table_info(transactions)')).rows;
+        if (cols.length && !cols.some(c => c.name === 'type')) {
+          await db.execute("ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'transaction'");
+        }
+      } catch (e) {
+        console.error('transactions migration failed (ignored): ' + e.message);
+      }
+      // Миграция: добавляем колонку parentId в guides (для подруководств)
+      try {
+        const cols = (await db.execute('PRAGMA table_info(guides)')).rows;
+        if (cols.length && !cols.some(c => c.name === 'parentId')) {
+          await db.execute('ALTER TABLE guides ADD COLUMN parentId INTEGER');
+        }
+      } catch (e) {
+        console.error('guides migration failed (ignored): ' + e.message);
+      }
       try {
         await seedData();
       } catch (e) {
         console.error('seedData failed (ignored): ' + e.message);
       }
     })().catch(err => {
-      initPromise = null; 
+      initPromise = null;
       throw err;
     });
   }

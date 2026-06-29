@@ -192,7 +192,7 @@
         <button class="btn btn-p" onclick="gmGivePoints()">Выдать поинты</button>
       </div>
     </div>
-    <div class="gmc">
+    <div class="gmc gmc-lg">
       <div class="gmc-ic">⬆</div>
       <h3>КТ / ОС / Репутация</h3><p>Управление прогрессом заверённого персонажа</p>
       <div class="gf">
@@ -209,13 +209,13 @@
           <div><label>Кол-во ОС</label><input class="inp" type="number" id="gm-os-val" placeholder="+0"></div>
         </div>
         <div class="fg">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <label style="margin:0">Источники репутации</label>
-            <button class="btn btn-g" style="padding:3px 10px;font-size:12px" onclick="addRepRow()">+ Добавить</button>
+            <button class="btn btn-g" style="padding:5px 12px;font-size:13px" onclick="addRepRow()">+ Добавить</button>
           </div>
-          <div id="rep-rows" style="display:flex;flex-direction:column;gap:6px"></div>
+          <div id="rep-rows" style="display:flex;flex-direction:column;gap:8px"></div>
         </div>
-        <button class="btn btn-p" onclick="gmApplyKt()">Применить</button>
+        <button class="btn btn-p gmc-apply" onclick="gmApplyKt()">Применить</button>
       </div>
     </div>
     <div class="gmc">
@@ -372,6 +372,7 @@
       <div style="display:flex;gap:8px;align-items:center">
         <div id="thread-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <button class="btn btn-g" id="thread-edit-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="editThread()">✎ Изменить</button>
+        <button class="btn btn-p" id="thread-subguide-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="openNewSubGuide()">+ Подруководство</button>
         <button class="btn btn-x" id="thread-del-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="deleteThread()">✕ Удалить</button>
         <button class="mc-btn" onclick="closeThread()">✕</button>
       </div>
@@ -487,7 +488,7 @@
 <!-- New Guide post -->
 <div class="mo" id="m-new-guide">
   <div class="md md-w">
-    <div class="mh"><h2>Новая запись в Руководстве</h2><button class="mc-btn" onclick="closeModal('m-new-guide');resetGuideModal()">✕</button></div>
+    <div class="mh"><h2 id="ng-modal-title">Новая запись в Руководстве</h2><button class="mc-btn" onclick="closeModal('m-new-guide');resetGuideModal()">✕</button></div>
     <div class="mb">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="fg"><label>Заголовок</label><input class="inp" id="ng-title" placeholder="Название записи"></div>
@@ -563,6 +564,29 @@
         <button class="btn btn-p" id="pd-add-char" style="padding:5px 12px;font-size:12px" onclick="closeModal('m-player-detail');openModal('m-new-char')">+ Создать</button>
       </div>
       <div id="pd-chars" style="display:flex;flex-direction:column;gap:10px"></div>
+      <button class="btn btn-g" id="pd-request-btn" style="width:100%;margin-top:14px;padding:8px;font-size:13px" onclick="openRequestModal()">✉ Отправить запрос ГМу</button>
+      <div id="pd-requests" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Request to GM modal -->
+<div class="mo" id="m-request">
+  <div class="md" style="max-width:520px">
+    <div class="mh">
+      <h2>Запрос ГМу</h2>
+      <button class="mc-btn" onclick="closeModal('m-request')">✕</button>
+    </div>
+    <div class="mb">
+      <p style="font-size:12px;color:var(--txt-m);margin-bottom:10px">Опишите ваш запрос — он появится у ГМа в разделе «Транзакции».</p>
+      <div class="fg">
+        <label>Текст запроса</label>
+        <textarea id="req-text" class="inp" rows="5" placeholder="Например: прошу выдать предмет X за квест Y, или: прошу подтвердить завершение квеста..." style="resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="btn btn-g" onclick="closeModal('m-request')">Отмена</button>
+        <button class="btn btn-p" onclick="sendRequest()">Отправить</button>
+      </div>
     </div>
   </div>
 </div>

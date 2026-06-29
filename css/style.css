@@ -157,6 +157,29 @@ textarea.inp{resize:vertical;min-height:80px}
 .post-ft{display:flex;align-items:center;gap:7px;padding:10px 20px;border-top:1px solid var(--bdr);flex-wrap:wrap}
 .ntag{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--pur-g);color:var(--pur-b);border:1px solid var(--bdr-s)}
 .post-meta{font-size:11px;color:var(--txt-m);margin-left:auto}
+
+/* ── Guide tree (sub-guides up to 3rd order) ── */
+.post-tree{background:transparent;border:none;padding:0;margin-bottom:8px}
+.post-tree>.post-card{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);transition:all .2s;cursor:pointer;overflow:hidden}
+.post-tree>.post-card:hover{border-color:var(--bdr-s);transform:translateX(2px)}
+.post-card .post-hd{display:flex;align-items:center;gap:8px;padding:14px 18px 8px}
+.post-card .post-ti{font-family:var(--fd);font-size:14px;font-weight:600;line-height:1.3;flex:1}
+.post-card .post-ex{padding:0 18px;margin-bottom:10px}
+.post-card .post-ft{padding:8px 18px;border-top:1px solid var(--bdr)}
+.sub-tree{margin-top:6px;padding-left:14px;border-left:2px dashed var(--bdr);display:flex;flex-direction:column;gap:6px}
+.sub-tree .post-card{background:var(--bg-h);border-radius:10px}
+.sub-tree .post-tree>.post-card{background:var(--bg-h)}
+.lvl-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px;letter-spacing:.05em;flex-shrink:0}
+.lvl-2{background:rgba(96,165,250,.15);color:#60A5FA}
+.lvl-3{background:rgba(168,85,247,.15);color:#a855f7}
+.kids-count{font-size:10px;color:var(--txt-m);background:var(--bg-h);padding:2px 8px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+
+/* Breadcrumbs in thread view */
+.crumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px;color:var(--txt-m);width:100%;margin-bottom:4px}
+.crumb{cursor:pointer;color:var(--txt-m);transition:color .15s}
+.crumb:hover{color:var(--gold)}
+.crumb.cur{color:var(--txt);font-weight:600;cursor:default}
+.crumb-sep{color:var(--txt-m);opacity:.6}
 /* Thread view */
 .thread-view{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto}
 .thread-view.on{display:flex}
@@ -232,14 +255,27 @@ textarea.inp{resize:vertical;min-height:80px}
    GM PANEL
 ══════════════════════════ */
 .gm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(295px,1fr));gap:18px}
+.gm-grid .gmc-lg{grid-column:span 2}
+@media (max-width:760px){.gm-grid .gmc-lg{grid-column:auto}}
 .gmc{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);padding:22px}
 .gmc-ic{font-size:26px;margin-bottom:9px}
 .gmc h3{font-family:var(--fd);font-size:14px;font-weight:700;color:var(--gold);margin-bottom:5px}
 .gmc p{font-size:12px;color:var(--txt-s);margin-bottom:14px}
 .gf{display:flex;flex-direction:column;gap:9px}
+
+/* ── Large GM card (КТ / ОС / Репутация) ── */
+.gmc-lg{padding:28px}
+.gmc-lg .gmc-ic{font-size:34px;margin-bottom:12px}
+.gmc-lg h3{font-size:17px;margin-bottom:6px}
+.gmc-lg p{font-size:13px;margin-bottom:18px}
+.gmc-lg .gf{gap:14px}
+.gmc-lg .fg label{font-size:11px}
+.gmc-lg .inp,
+.gmc-lg .sel{font-size:15px;padding:12px 14px;border-radius:10px}
+.gmc-lg .gmc-apply{padding:12px 16px;font-size:15px;margin-top:4px}
 .ir{display:grid;grid-template-columns:1fr 2fr;gap:7px}
-.ktg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
-.ktg label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-m);display:block;margin-bottom:3px}
+.ktg{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:10px}
+.ktg label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-m);display:block;margin-bottom:5px}
 /* Faction autocomplete */
 .fac-wrap{position:relative}
 .fac-drop{position:absolute;top:100%;left:0;right:0;background:var(--bg-e);border:1px solid var(--bdr-s);border-radius:0 0 var(--r) var(--r);z-index:50;display:none;max-height:160px;overflow-y:auto}
@@ -255,6 +291,24 @@ textarea.inp{resize:vertical;min-height:80px}
 .tx-ds{font-size:11px;color:var(--txt-s)}
 .tx-co{font-family:var(--fm);font-size:11px;color:var(--gold);white-space:nowrap}
 .tx-ac{display:flex;gap:4px}
+.tx-req{border-left:3px solid #60A5FA}
+.tx-tag{display:inline-block;font-size:9px;font-weight:700;color:#60A5FA;background:rgba(96,165,250,.15);padding:1px 5px;border-radius:6px;margin-left:4px;text-transform:uppercase;letter-spacing:.05em}
+.tx-status{font-size:11px;font-weight:600;white-space:nowrap}
+.tx-pending{color:var(--txt-m)}
+.tx-approved{color:#22c55e}
+.tx-rejected{color:#ef4444}
+
+/* Player requests list in detail modal */
+.req-row{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;background:var(--bg-h);border-radius:8px;font-size:12px;border-left:3px solid var(--bdr)}
+.req-row.req-pending{border-left-color:var(--txt-m)}
+.req-row.req-approved{border-left-color:#22c55e}
+.req-row.req-rejected{border-left-color:#ef4444}
+.req-status{font-size:14px;line-height:1.4;flex-shrink:0}
+.req-text{flex:1;color:var(--txt-s);line-height:1.4;word-break:break-word}
+.req-state{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;align-self:center}
+.req-row.req-pending .req-state{color:var(--txt-m)}
+.req-row.req-approved .req-state{color:#22c55e}
+.req-row.req-rejected .req-state{color:#ef4444}
 
 /* ══════════════════════════
    LOGS
@@ -404,8 +458,44 @@ body.role-player .nav-sec.gm-only{display:none}
 .rep-val{color:#22c55e;font-weight:700}
 .rep-val.neg{color:#ef4444}
 .rep-note{color:var(--txt-m);font-style:italic;font-size:11px}
+
+/* Larger reputation rows inside the big GM card */
+.gmc-lg .rep-row{grid-template-columns:1fr 110px 1.4fr 36px!important;gap:8px!important}
+.gmc-lg .rep-row .inp{font-size:14px;padding:11px 13px}
+.gmc-lg .rep-row .btn-x{padding:8px!important}
 .char-desc{font-size:13px;color:var(--txt-s);padding:8px 12px;background:var(--bg-h);border-radius:8px;font-style:italic;line-height:1.5}
 .char-edit{margin-top:12px;padding-top:12px;border-top:1px dashed var(--bdr)}
+
+/* ── Character details (expandable) ── */
+.char-expand{margin-left:8px;color:var(--txt-m);font-size:12px;transition:transform .2s;display:inline-block}
+.char-details{margin-top:12px;padding-top:12px;border-top:1px dashed var(--bdr);animation:fadeDown .2s ease}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.char-inv{margin-top:14px}
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.inv-item{display:flex;gap:10px;align-items:center;padding:8px 10px;background:var(--bg-h);border-radius:8px;border-left:3px solid var(--bdr);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.inv-item:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.inv-item.r-common{border-left-color:#9ca3af}
+.inv-item.r-uncommon{border-left-color:#22c55e}
+.inv-item.r-rare{border-left-color:#3b82f6}
+.inv-item.r-very_rare{border-left-color:#a855f7}
+.inv-item.r-legendary{border-left-color:#f59e0b}
+.inv-item.r-artifact{border-left-color:#ef4444}
+.inv-item.r-none,.inv-item.r-varies{border-left-color:var(--bdr)}
+.inv-ic{width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--bg-e);border-radius:6px;font-size:20px;flex-shrink:0;overflow:hidden}
+.inv-ic img{width:100%;height:100%;object-fit:cover}
+.inv-info{flex:1;min-width:0}
+.inv-name{font-weight:600;font-size:13px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-meta{display:flex;align-items:center;gap:8px;margin-top:2px}
+.inv-type{font-size:11px;color:var(--txt-m);margin-top:1px}
+.inv-qty{font-size:11px;color:var(--txt-s);background:var(--bg-e);padding:1px 6px;border-radius:8px}
+.rb-sm{font-size:10px;padding:1px 6px;border-radius:8px;font-weight:600}
+.rb-sm.r-common{background:rgba(156,163,175,.15);color:#9ca3af}
+.rb-sm.r-uncommon{background:rgba(34,197,94,.15);color:#22c55e}
+.rb-sm.r-rare{background:rgba(59,130,246,.15);color:#3b82f6}
+.rb-sm.r-very_rare{background:rgba(168,85,247,.15);color:#a855f7}
+.rb-sm.r-legendary{background:rgba(245,158,11,.15);color:#f59e0b}
+.rb-sm.r-artifact{background:rgba(239,68,68,.15);color:#ef4444}
+.rb-sm.r-none,.rb-sm.r-varies{background:rgba(148,163,184,.1);color:var(--txt-m)}
 .emp-ic{font-size:44px;margin-bottom:10px;opacity:.45}
 .emp h3{font-family:var(--fd);font-size:14px;margin-bottom:5px;color:var(--txt-s)}
 .emp p{font-size:12px}

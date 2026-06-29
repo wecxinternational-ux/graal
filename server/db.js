@@ -62,7 +62,8 @@ const SCHEMA = `
     author TEXT,
     date TEXT,
     atts TEXT DEFAULT '[]',
-    comments TEXT DEFAULT '[]'
+    comments TEXT DEFAULT '[]',
+    parentId INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS players (
@@ -96,7 +97,8 @@ const SCHEMA = `
     player TEXT,
     "desc" TEXT,
     cost INTEGER,
-    status TEXT DEFAULT 'pending'
+    status TEXT DEFAULT 'pending',
+    type TEXT DEFAULT 'transaction'
   );
   CREATE TABLE IF NOT EXISTS gm_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -206,6 +208,24 @@ async function seedData() {
 // Инициализация при запуске
 async function init() {
   await db.executeMultiple(SCHEMA);
+  // Миграция: добавляем колонку type в существующие БД
+  try {
+    const cols = (await db.execute('PRAGMA table_info(transactions)')).rows;
+    if (cols.length && !cols.some(c => c.name === 'type')) {
+      await db.execute("ALTER TABLE transactions ADD COLUMN type TEXT DEFAULT 'transaction'");
+    }
+  } catch (e) {
+    console.error('transactions migration failed (ignored): ' + e.message);
+  }
+  // Миграция: добавляем колонку parentId в guides
+  try {
+    const cols = (await db.execute('PRAGMA table_info(guides)')).rows;
+    if (cols.length && !cols.some(c => c.name === 'parentId')) {
+      await db.execute('ALTER TABLE guides ADD COLUMN parentId INTEGER');
+    }
+  } catch (e) {
+    console.error('guides migration failed (ignored): ' + e.message);
+  }
   await seedData();
 }
 

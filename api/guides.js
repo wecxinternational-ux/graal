@@ -15,18 +15,19 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     if (!await requireGm(req, res)) return;
-    const {title, tags, content, author, date, atts, comments} = req.body;
+    const {title, tags, content, author, date, atts, comments, parentId} = req.body;
     const result = await db.execute({
-      sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         title, JSON.stringify(tags || []), content,
         author || req.user?.username || 'Мастер Эрандил',
         date || new Date().toISOString().split('T')[0],
-        JSON.stringify(atts || []), JSON.stringify(comments || [])
+        JSON.stringify(atts || []), JSON.stringify(comments || []),
+        parentId ?? null
       ]
     });
-    return res.json({ id: Number(result.lastInsertRowid), ...req.body });
+    return res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null });
   }
 
   if (req.method === 'PUT') {
@@ -37,13 +38,13 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Нет прав на редактирование' });
       }
     }
-    const {title, tags, content, author, date, atts, comments} = req.body;
+    const {title, tags, content, author, date, atts, comments, parentId} = req.body;
     await db.execute({
-      sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
+      sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?
             WHERE id=?`,
       args: [
         title, JSON.stringify(tags), content, author, date,
-        JSON.stringify(atts), JSON.stringify(comments), id
+        JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, id
       ]
     });
     return res.json({ success: true });

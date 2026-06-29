@@ -35,10 +35,43 @@ async function fetchData() {
   try {
     const data = await apiRequest('/data');
     DB = data;
+    // Проверяем, не изменился ли статус запросов игрока → уведомляем
+    notifyResolvedRequests();
     return data;
   } catch (e) {
     console.error('Failed to fetch data:', e);
   }
+}
+
+/* ── Уведомления игроку о результате его запросов/транзакций ──
+   Храним в localStorage последний известный статус каждого запроса.
+   При обнаружении перехода pending → approved/rejected показываем toast. */
+function getSeenTxStatuses(){
+  try{return JSON.parse(localStorage.getItem('seenTxStatuses')||'{}')}catch{return {}}
+}
+function setSeenTxStatuses(obj){
+  try{localStorage.setItem('seenTxStatuses',JSON.stringify(obj))}catch{}
+}
+function notifyResolvedRequests(){
+  if(!currentUser||!DB||!DB.transactions)return;
+  const seen=getSeenTxStatuses();
+  const mine=DB.transactions.filter(t=>t.player===currentUser.username);
+  let changed=false;
+  for(const t of mine){
+    const prev=seen[t.id];
+    // Уведомляем только о новых завершениях (переход из pending)
+    if(prev==='pending' && (t.status==='approved'||t.status==='rejected')){
+      const isReq=t.type==='request';
+      const verb=t.status==='approved'?(isReq?'Запрос одобрен':'Транзакция одобрена'):(isReq?'Запрос отклонён':'Транзакция отклонена');
+      const icon=t.status==='approved'?'✓':'✗';
+      const type=t.status==='approved'?'ok':'er';
+      // Обрезаем длинный текст для компактности тоста
+      const preview=t.desc&&t.desc.length>50?t.desc.slice(0,50)+'…':(t.desc||'');
+      toast(`${icon} ${verb}: ${preview}`, type);
+    }
+    if(seen[t.id]!==t.status){seen[t.id]=t.status;changed=true}
+  }
+  if(changed)setSeenTxStatuses(seen);
 }
 
 /* ── Auth functions ── */
@@ -625,28 +658,110 @@ function initGuide(){
   buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
   initToolbar('ng-etb','ng-editor');
 }
+
+// Уровень руководства в иерархии (1 = верхний, 2 = подруководство, 3 = под-подруководство)
+function guideLevel(id){
+  let level=1,cur=DB.guides.find(g=>g.id===id),guard=0;
+  while(cur&&cur.parentId&&guard++<10){
+    level++;
+    cur=DB.guides.find(g=>g.id===cur.parentId);
+  }
+  return level;
+}
+// Дочерние руководства
+function guideChildren(parentId){
+  return DB.guides.filter(g=>g.parentId===parentId);
+}
+// Цепочка родителей от корня до текущего (включительно)
+function guideBreadcrumbs(id){
+  const chain=[];
+  let cur=DB.guides.find(g=>g.id===id),guard=0;
+  while(cur&&guard++<10){chain.unshift(cur);cur=DB.guides.find(g=>g.id===cur.parentId)}
+  return chain;
+}
+
+// Контекст создания: parentId для нового подруководства (null = верхний уровень)
+let ngParentId=null;
+function openNewSubGuide(){
+  if(!threadPostId||threadType!=='guide')return;
+  // Ограничение: подруководства до 3-го порядка
+  const lvl=guideLevel(threadPostId);
+  if(lvl>=3){toast('Допускается не более 3 уровней вложенности','er');return}
+  ngParentId=threadPostId;
+  const parentTitle=DB.guides.find(g=>g.id===threadPostId)?.title||'';
+  const titleEl=document.getElementById('ng-modal-title');
+  if(titleEl)titleEl.textContent='Новое подруководство';
+  const ph=document.getElementById('ng-title');
+  if(ph)ph.placeholder='Название подруководства';
+  // Подсказка о родителе
+  let hint=document.getElementById('ng-parent-hint');
+  if(!hint){
+    hint=document.createElement('div');
+    hint.id='ng-parent-hint';
+    hint.style.cssText='font-size:12px;color:var(--txt-m);margin-top:-4px;padding:6px 10px;background:var(--bg-h);border-radius:6px';
+    ph.parentNode.insertBefore(hint,ph.nextSibling);
+  }
+  hint.textContent='↳ Раздел: '+parentTitle+' (уровень '+(lvl+1)+' из 3)';
+  hint.style.display='block';
+  resetGuideModal();
+  openModal('m-new-guide');
+}
+
 function renderGuide(){
   const q=(document.getElementById('guide-q')?.value||'').toLowerCase();
   const activeTag=document.querySelector('#guide-tags-filter .tc.on')?.dataset.tag||'Все';
   // Счётчик активных фильтров для мобильной кнопки
   const cnt=(q?1:0)+(activeTag!=='Все'?1:0);
   updateFilterCount('guide-nsf',cnt);
-  const list=DB.guides.filter(n=>{
+  const matchSearch=n=>{
     const mq=!q||n.title.toLowerCase().includes(q)||n.content.replace(/<[^>]+>/g,'').toLowerCase().includes(q);
     const mt=activeTag==='Все'||n.tags.includes(activeTag);
     return mq&&mt;
-  });
+  };
+  // Верхний уровень — без parentId
+  const roots=DB.guides.filter(n=>!n.parentId&&matchSearch(n));
   const el=document.getElementById('guide-list');
-  if(!list.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
-  el.innerHTML=list.map(n=>`
-    <div class="post" onclick="openThread(${n.id},'guide')">
-      <div class="post-hd"><div class="post-ti">${n.title}</div></div>
+  if(!DB.guides.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
+  // Если фильтры активны и нет корней — покажем все совпадения плоско
+  if(!roots.length&&(q||activeTag!=='Все')){
+    const flat=DB.guides.filter(matchSearch);
+    if(!flat.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Ничего не найдено</h3></div>';return}
+    el.innerHTML=flat.map(n=>renderGuideCard(n,0)).join('');
+    return;
+  }
+  if(!roots.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
+  el.innerHTML=roots.map(n=>renderGuideTree(n,0)).join('');
+}
+// Рекурсивный рендер дерева с подруководствами
+function renderGuideTree(node,depth){
+  const kids=guideChildren(node.id);
+  const hasKids=kids.length>0;
+  return `
+    <div class="post post-tree" style="margin-left:${depth*20}px">
+      ${renderGuideCard(node,depth)}
+      ${hasKids?`<div class="sub-tree" id="subtree-${node.id}">
+        ${kids.map(k=>renderGuideTree(k,depth+1)).join('')}
+      </div>`:''}
+    </div>`;
+}
+function renderGuideCard(n,depth){
+  const kids=guideChildren(n.id);
+  const lvl=depth+1;
+  const lvlBadge=depth>0?`<span class="lvl-badge lvl-${lvl}">L${lvl}</span>`:'';
+  const kidsInfo=kids.length?`<span class="kids-count">▸ ${kids.length} подр.</span>`:'';
+  return `
+    <div class="post-card" onclick="openThread(${n.id},'guide')">
+      <div class="post-hd">
+        ${lvlBadge}
+        <div class="post-ti">${n.title}</div>
+        ${kidsInfo}
+      </div>
       <div class="post-ex">${renderPreview(n.content)}</div>
       <div class="post-ft">
         ${n.tags.map(t=>`<span class="ntag">${t}</span>`).join('')}
         <span class="post-meta">${n.author} · ${n.date}</span>
       </div>
-    </div>`).join('');
+    </div>`;
 }
 async function saveGuide(){
   const title=document.getElementById('ng-title').value.trim();
@@ -658,7 +773,8 @@ async function saveGuide(){
     atts:noteAtts.ng||[],
     comments:[],
     author:currentUser?.username||'Мастер Эрандил',
-    date:new Date().toISOString().split('T')[0]
+    date:new Date().toISOString().split('T')[0],
+    parentId:ngParentId
   };
   const newGuide = await apiRequest('/guides', {
     method: 'POST',
@@ -666,7 +782,7 @@ async function saveGuide(){
   });
   DB.guides.unshift(newGuide);
   noteAtts.ng=[];
-  toast(`Запись «${title}» сохранена`,'ok');
+  toast(ngParentId?`Подруководство «${title}» сохранено`:`Запись «${title}» сохранена`,'ok');
   closeModal('m-new-guide');
   // Обновляем фильтр тегов
   buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
@@ -675,6 +791,12 @@ async function saveGuide(){
   document.getElementById('ng-editor').innerHTML='';
   document.getElementById('ng-att-list').innerHTML='';
   buildTagsSelect('ng-tags-sel');
+  // Сброс контекста подруководства
+  ngParentId=null;
+  const titleEl=document.getElementById('ng-modal-title');
+  if(titleEl)titleEl.textContent='Новая запись в Руководстве';
+  const hint=document.getElementById('ng-parent-hint');
+  if(hint)hint.style.display='none';
   renderGuide();
 }
 
@@ -720,9 +842,18 @@ function openThread(id,type){
   const post=db.find(x=>x.id===id);if(!post)return;
   threadPostId=id;threadType=type;
   document.getElementById('thread-title').textContent=post.title;
-  document.getElementById('thread-badges').innerHTML=
-    post.tags.map(t=>`<span class="ntag">${t}</span>`).join('')+
+  // Хлебные крошки для подруководств (гайды)
+  let badgesHtml=post.tags.map(t=>`<span class="ntag">${t}</span>`).join('')+
     (post.isPublic?'<span class="pub-badge">Публичная</span>':'');
+  if(type==='guide'){
+    const crumbs=guideBreadcrumbs(id);
+    if(crumbs.length>1){
+      badgesHtml=`<span class="crumbs">${crumbs.map((c,i)=>i<crumbs.length-1
+        ?`<span class="crumb" onclick="event.stopPropagation();openThread(${c.id},'guide')">${c.title}</span><span class="crumb-sep">›</span>`
+        :`<span class="crumb cur">${c.title}</span>`).join('')}</span>`+badgesHtml;
+    }
+  }
+  document.getElementById('thread-badges').innerHTML=badgesHtml;
   document.getElementById('thread-content').innerHTML=renderContent(post.content);
   const atts=post.atts||[];
   document.getElementById('thread-atts').innerHTML=atts.length?atts.map(a=>`
@@ -735,6 +866,12 @@ function openThread(id,type){
   const isAuthor=post.author===currentUser?.username;
   document.getElementById('thread-edit-btn').style.display=(isGm||isAuthor)?'inline-flex':'none';
   document.getElementById('thread-del-btn').style.display=(isGm||isAuthor)?'inline-flex':'none';
+  // Кнопка "+ Подруководство": только для гайдов, только ГМ, и уровень < 3
+  const subBtn=document.getElementById('thread-subguide-btn');
+  if(subBtn){
+    const showSub=type==='guide'&&isGm&&guideLevel(id)<3;
+    subBtn.style.display=showSub?'inline-flex':'none';
+  }
   document.getElementById('thread-view').classList.add('on');
 }
 
@@ -863,9 +1000,13 @@ function resetGuideModal(){
   const btn=document.querySelector('#m-new-guide .mf .btn-p');
   if(btn){btn.textContent='Сохранить';btn.setAttribute('onclick','saveGuide()')}
   document.getElementById('ng-title').value='';
+  document.getElementById('ng-title').placeholder='Название записи';
   document.getElementById('ng-editor').innerHTML='';
   document.getElementById('ng-att-list').innerHTML='';
   noteAtts.ng=[];
+  ngParentId=null;
+  const hint=document.getElementById('ng-parent-hint');
+  if(hint)hint.style.display='none';
   buildTagsSelect('ng-tags-sel');
 }
 function closeThread(){document.getElementById('thread-view').classList.remove('on');}
@@ -1075,17 +1216,30 @@ async function gmCertify(status){
 }
 function renderTx(){
   const list=document.getElementById('tx-list');
-  const pending=DB.transactions.filter(t=>t.status==='pending');
-  if(!pending.length){list.innerHTML='<div style="font-size:12px;color:var(--txt-m);text-align:center;padding:20px">Нет ожидающих транзакций</div>';return}
-  list.innerHTML=pending.map(t=>`
-    <div class="tx" id="tx-${t.id}">
-      <div class="tx-inf"><span class="tx-pl">${t.player}</span><span class="tx-ds">${t.desc}</span></div>
-      <span class="tx-co">${t.cost} pts</span>
-      <div class="tx-ac">
-        <div class="bic btn-ok" onclick="approveTx(${t.id})">✓</div>
-        <div class="bic btn-x" onclick="rejectTx(${t.id})">✗</div>
+  if(!list)return;
+  const isGm=currentUser?.role==='gm';
+  // ГМ видит все ожидающие, игрок — только свои
+  let items=DB.transactions.filter(t=>t.status==='pending');
+  if(!isGm)items=items.filter(t=>t.player===currentUser?.username);
+  if(!items.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--txt-m);text-align:center;padding:20px">'+(isGm?'Нет ожидающих транзакций':'У вас нет ожидающих запросов')+'</div>';
+    return;
+  }
+  list.innerHTML=items.map(t=>{
+    const isReq=t.type==='request';
+    return `
+    <div class="tx ${isReq?'tx-req':''}" id="tx-${t.id}">
+      <div class="tx-inf">
+        <span class="tx-pl">${t.player}${isReq?' <span class="tx-tag">запрос</span>':''}</span>
+        <span class="tx-ds">${t.desc}</span>
       </div>
-    </div>`).join('');
+      ${isReq?'':`<span class="tx-co">${t.cost} pts</span>`}
+      ${isGm?`<div class="tx-ac">
+        <div class="bic btn-ok" onclick="approveTx(${t.id})" title="Одобрить">✓</div>
+        <div class="bic btn-x" onclick="rejectTx(${t.id})" title="Отклонить">✗</div>
+      </div>`:`<span class="tx-status tx-${t.status}">${t.status==='pending'?'⏳ Ожидает':t.status==='approved'?'✓ Одобрено':'✗ Отклонено'}</span>`}
+    </div>`;
+  }).join('');
 }
 async function approveTx(id){
   const t=DB.transactions.find(x=>x.id===id);if(!t)return;
@@ -1094,8 +1248,12 @@ async function approveTx(id){
     method: 'PUT',
     body: JSON.stringify(t)
   }, { id: t.id });
-  await addLog('award','🔑',`Транзакция одобрена: <span class="li-pl">${t.player}</span> — <strong>${t.desc}</strong>.`);
-  toast('Транзакция одобрена','ok');renderTx();
+  const isReq=t.type==='request';
+  await addLog('award','🔑',isReq
+    ?`Запрос от <span class="li-pl">${t.player}</span> одобрен: <em>${t.desc}</em>`
+    :`Транзакция одобрена: <span class="li-pl">${t.player}</span> — <strong>${t.desc}</strong>.`);
+  toast(isReq?'Запрос одобрен':'Транзакция одобрена','ok');renderTx();
+  if(currentPlayerId){const p=DB.players.find(x=>x.id===currentPlayerId);if(p)renderPlayerRequests(p);}
 }
 async function rejectTx(id){
   const t=DB.transactions.find(x=>x.id===id);if(!t)return;
@@ -1104,7 +1262,45 @@ async function rejectTx(id){
     method: 'PUT',
     body: JSON.stringify(t)
   }, { id: t.id });
-  toast('Транзакция отклонена','er');renderTx();
+  const isReq=t.type==='request';
+  toast(isReq?'Запрос отклонён':'Транзакция отклонена','er');renderTx();
+  if(currentPlayerId){const p=DB.players.find(x=>x.id===currentPlayerId);if(p)renderPlayerRequests(p);}
+}
+
+/* ── Player → GM text requests ── */
+function openRequestModal(){
+  const ta=document.getElementById('req-text');
+  if(ta)ta.value='';
+  openModal('m-request');
+}
+async function sendRequest(){
+  const text=document.getElementById('req-text').value.trim();
+  if(!text){toast('Введите текст запроса','er');return}
+  try{
+    const data=await apiRequest('/transactions',{
+      method:'POST',
+      body:JSON.stringify({desc:text,type:'request',cost:0})
+    });
+    // Добавляем в локальную копию
+    if(!DB.transactions)DB.transactions=[];
+    DB.transactions.unshift(data);
+    closeModal('m-request');
+    toast('Запрос отправлен ГМу','ok');
+    await addLog('item','✉',`Запрос от <span class="li-pl">${data.player}</span>: <em>${text.length>60?text.slice(0,60)+'…':text}</em>`);
+    // Регистрируем свежий запрос как pending, чтобы потом корректно отследить переход
+    const seen=getSeenTxStatuses();
+    seen[data.id]='pending';
+    setSeenTxStatuses(seen);
+    // Обновляем список запросов в модалке игрока, если она открыта
+    if(currentPlayerId){
+      const p=DB.players.find(x=>x.id===currentPlayerId);
+      if(p)renderPlayerRequests(p);
+    }
+    // Если открыта ГМ-панель — обновим и её
+    renderTx();
+  }catch(e){
+    toast(e.message||'Ошибка отправки запроса','er');
+  }
 }
 
 /* ── GM invite codes (одноразовые коды для повышения до ГМ) ── */
@@ -1526,41 +1722,71 @@ function openPlayerDetail(pid){
   if(!p.chars||!p.chars.length){
     charsList.innerHTML='<div style="text-align:center;padding:24px;color:var(--txt-m);font-size:13px">У игрока ещё нет персонажей</div>';
   }else{
+    // Предметы, выданные этому игроку (привязка по имени игрока)
+    const playerItems=DB.items
+      .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name))
+      .map(it=>{
+        const award=it.awardedTo.find(a=>a.player===p.name);
+        return {item:it,qty:award.qty};
+      });
+
     charsList.innerHTML=p.chars.map((c,i)=>`
       <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
-        <div class="char-head">
+        <div class="char-head" style="cursor:pointer" onclick="toggleCharDetails(${i})">
           <div>
-            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}</div>
+            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
             <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
           </div>
           ${canManage?`
             <div class="char-actions">
-              <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="toggleEditChar(${i})">✎ Изменить</button>
-              <button class="btn btn-x" style="padding:4px 10px;font-size:12px" onclick="deleteChar(${i})">✕</button>
+              <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();toggleEditChar(${i})">✎ Изменить</button>
+              <button class="btn btn-x" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();deleteChar(${i})">✕</button>
             </div>
           `:''}
         </div>
-        <div class="char-stats">
-          <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
-          <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
-          <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
-          <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
-          <div><span class="cs-l">ОС этап 4</span><span class="cs-v">${normalizeOs(c.os)[3]}</span></div>
-          <div><span class="cs-l">Создан</span><span class="cs-v">${c.createdAt||'—'}</span></div>
-        </div>
-        ${c.rep&&c.rep.length?`
-          <div class="char-rep">
-            <div class="cs-l" style="margin-bottom:6px">Репутация</div>
-            ${c.rep.map(r=>`
-              <div class="rep-chip">
-                <span class="rep-fac">${r.fac}</span>
-                <span class="rep-val ${r.val<0?'neg':''}">${r.val>0?'+':''}${r.val}</span>
-                ${r.note?`<span class="rep-note">${r.note}</span>`:''}
-              </div>
-            `).join('')}
+        <div class="char-details" id="char-details-${i}" style="display:none">
+          <div class="char-stats">
+            <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
+            <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
+            <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
+            <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
+            <div><span class="cs-l">ОС этап 4</span><span class="cs-v">${normalizeOs(c.os)[3]}</span></div>
+            <div><span class="cs-l">Создан</span><span class="cs-v">${c.createdAt||'—'}</span></div>
           </div>
-        `:''}
-        ${c.desc?`<div class="char-desc">${c.desc}</div>`:''}
+          ${c.rep&&c.rep.length?`
+            <div class="char-rep">
+              <div class="cs-l" style="margin-bottom:6px">Репутация</div>
+              ${c.rep.map(r=>`
+                <div class="rep-chip">
+                  <span class="rep-fac">${r.fac}</span>
+                  <span class="rep-val ${r.val<0?'neg':''}">${r.val>0?'+':''}${r.val}</span>
+                  ${r.note?`<span class="rep-note">${r.note}</span>`:''}
+                </div>
+              `).join('')}
+            </div>
+          `:''}
+          ${c.desc?`<div class="char-desc">${c.desc}</div>`:''}
+          <div class="char-inv">
+            <div class="cs-l" style="margin-bottom:8px">Предметы игрока (${playerItems.reduce((s,pi)=>s+pi.qty,0)} шт.)</div>
+            ${playerItems.length?`
+              <div class="inv-grid">
+                ${playerItems.map(pi=>`
+                  <div class="inv-item r-${pi.item.rarity||'none'}" title="${(pi.item.desc||'').replace(/"/g,'&quot;')}" onclick="openItemDetail(${pi.item.id})">
+                    <div class="inv-ic">${pi.item.img?`<img src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'">`:`<span>${emo(pi.item.type)}</span>`}</div>
+                    <div class="inv-info">
+                      <div class="inv-name">${pi.item.name}</div>
+                      <div class="inv-meta">
+                        <span class="rb-sm r-${pi.item.rarity||'none'}">${RARITY[pi.item.rarity]||'—'}</span>
+                        <span class="inv-qty">×${pi.qty}</span>
+                      </div>
+                      <div class="inv-type">${pi.item.type||'—'}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `:'<div style="font-size:12px;color:var(--txt-m);font-style:italic">Предметов пока нет</div>'}
+          </div>
+        </div>
         <div class="char-edit" id="char-edit-${i}" style="display:none">
           <div class="fg2">
             <div class="fg"><label>Имя</label><input class="inp" id="ce-name-${i}" value="${(c.name||'').replace(/"/g,'&quot;')}"></div>
@@ -1585,6 +1811,37 @@ function openPlayerDetail(pid){
   }
 
   openModal('m-player-detail');
+  renderPlayerRequests(p);
+}
+
+// Список запросов игрока в его карточке
+function renderPlayerRequests(p){
+  const box=document.getElementById('pd-requests');
+  const reqBtn=document.getElementById('pd-request-btn');
+  if(!box)return;
+  // ГМ не отправляет запросы себе, кнопку скрываем
+  if(reqBtn)reqBtn.style.display=currentUser?.role==='gm'?'none':'block';
+  const myReqs=(DB.transactions||[]).filter(t=>t.player===p.name);
+  if(!myReqs.length){box.innerHTML='';return}
+  box.innerHTML=`
+    <h3 style="font-family:var(--fd);font-size:13px;color:var(--txt-s);letter-spacing:.06em;margin-bottom:8px">МОИ ЗАПРОСЫ</h3>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${myReqs.slice(0,10).map(t=>`
+        <div class="req-row req-${t.status}">
+          <span class="req-status">${t.status==='pending'?'⏳':t.status==='approved'?'✓':'✗'}</span>
+          <span class="req-text">${t.desc}</span>
+          <span class="req-state">${t.status==='pending'?'Ожидает':t.status==='approved'?'Одобрено':'Отклонено'}</span>
+        </div>
+      `).join('')}
+    </div>`;
+}
+function toggleCharDetails(idx){
+  const details=document.getElementById(`char-details-${idx}`);
+  const arrow=document.getElementById(`char-expand-${idx}`);
+  if(!details)return;
+  const isOpen=details.style.display!=='none';
+  details.style.display=isOpen?'none':'block';
+  if(arrow)arrow.textContent=isOpen?'▾':'▴';
 }
 
 function toggleEditChar(idx){
@@ -1784,6 +2041,7 @@ function toast(msg,type='ok'){
 }
 
 /* ── Initialize app ── */
+let pollTimer=null;
 async function initApp(){
   initNotes();
   initGuide();
@@ -1791,6 +2049,14 @@ async function initApp(){
   if(data){
     renderTab('items');
   }
+  // Лёгкий поллинг для доставки уведомлений игроку о результате запросов
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    // Только если пользователь авторизован и страница видима
+    if(authToken&&currentUser&&!document.hidden){
+      try{await fetchData()}catch{}
+    }
+  },30000);
 }
 
 /* ── Check auth on load ── */
