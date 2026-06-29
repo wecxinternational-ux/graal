@@ -464,16 +464,20 @@ body.role-player .nav-sec.gm-only{display:none}
     box-shadow:0 2px 12px rgba(0,0,0,.3);transition:all .15s;
   }
   .mc-toggle:hover{background:var(--bg-h);border-color:var(--bdr-s)}
+  /* Скрываем бургер при открытом меню (закрытие через бэкдроп) */
+  body:has(.sb.open) .mc-toggle{opacity:0;pointer-events:none;transform:translateX(-60px)}
   /* Заголовок страницы уходит под кнопку */
   .page-hd{padding-left:54px;margin-bottom:18px}
   .page-hd h1{font-size:20px}
+  /* Отступ слева для заголовков секций, чтобы не залезали под бургер */
+  .ph{padding-left:54px}
   /* Сетки → 1-2 колонки */
   .ig{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
   .gm-grid{grid-template-columns:1fr;gap:14px}
   .pg{grid-template-columns:1fr;gap:12px}
   .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px}
   .nl{grid-template-columns:1fr;gap:14px}
-  /* Фильтры: sticky сверху, раскрываются по кнопке */
+  /* Фильтры: sticky сверху, раскрываются по кнопке (ниже бургера) */
   .nsf{
     position:sticky;top:0;z-index:20;
     padding:0;gap:0;
@@ -481,10 +485,11 @@ body.role-player .nav-sec.gm-only{display:none}
     border-left:none;border-right:none;
     box-shadow:0 2px 10px rgba(0,0,0,.2);
     max-height:none;overflow:visible;
+    margin-left:-14px;margin-right:-14px;
   }
   .nsf-toggle{
     display:flex;align-items:center;width:100%;
-    padding:12px 14px;background:var(--bg-e);
+    padding:12px 14px 12px 54px;background:var(--bg-e);
     border:none;color:var(--txt);font-size:13px;font-weight:600;
     cursor:pointer;font-family:inherit;text-align:left;
   }
