@@ -324,8 +324,17 @@ async function renderTab(t){
     const el=document.getElementById(containerId);
     if(el)el.innerHTML='<div class="emp"><div class="emp-ic spin">⏳</div><h3>Загрузка…</h3></div>';
   }
-  if(t==='notes'){await ensureSection('notes');renderNotes()}
-  else if(t==='guide'){await ensureSection('guides');renderGuide()}
+  if(t==='notes'){
+    await ensureSection('notes');
+    // Перестроить фильтр тегов с учётом загруженных данных (кастомные теги)
+    buildTagsFilter('note-tags-filter',renderNotes,(DB.notes||[]).flatMap(n=>n.tags||[]));
+    renderNotes();
+  }
+  else if(t==='guide'){
+    await ensureSection('guides');
+    buildTagsFilter('guide-tags-filter',renderGuide,(DB.guides||[]).flatMap(g=>g.tags||[]));
+    renderGuide();
+  }
   else if(t==='logs'){await ensureSection('logs');renderLogs()}
   else if(t==='players'){renderPlayers()}
   else if(t==='gm'){renderGm()}
