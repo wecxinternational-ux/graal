@@ -315,7 +315,9 @@ function openItemDetail(id){
   currentItemId=id;
   document.getElementById('det-title').textContent=it.name;
   const awSel=document.getElementById('aw-player');
-  awSel.innerHTML='<option value="">Выбрать игрока…</option>'+DB.players.map(p=>`<option>${p.name}</option>`).join('');
+  // Выдавать предметы можно только игрокам с хотя бы одним заверённым персонажем
+  const eligiblePlayers=DB.players.filter(p=>(p.chars||[]).some(c=>c.verified));
+  awSel.innerHTML='<option value="">Выбрать игрока…</option>'+eligiblePlayers.map(p=>`<option>${p.name}</option>`).join('');
   const totalAwarded=it.awardedTo.reduce((s,a)=>s+a.qty,0);
   const awdHtml=it.awardedTo.length?`<div class="aw-list">${it.awardedTo.map(a=>`
     <div class="aw-li">
@@ -944,7 +946,15 @@ function fillGmChars(playerId,charId){
   const player=document.getElementById(playerId)?.value;
   const p=DB.players.find(x=>x.name===player);
   const el=document.getElementById(charId);
-  el.innerHTML='<option value="">Выбрать персонажа…</option>'+(p?p.chars.map(c=>`<option>${c.name}</option>`).join(''):'');
+  // Для панели КТ/ОС — только заверённые персонажи (активные).
+  // Для панели заверения — все персонажи (ГМ может заверять/снимать статус).
+  const isCertPanel=charId==='gm-cer-char';
+  const chars=(p?.chars||[]).filter(c=>isCertPanel?true:c.verified);
+  el.innerHTML='<option value="">Выбрать персонажа…</option>'+chars.map(c=>{
+    // value хранит чистое имя, а текст — с индикатором статуса
+    const tag=isCertPanel?(c.verified?' ✓':' ⏳'):'';
+    return `<option value="${c.name.replace(/"/g,'&quot;')}">${c.name}${tag}</option>`;
+  }).join('');
 }
 function renderGm(){
   populatePlayerSelects();
@@ -976,6 +986,9 @@ async function gmApplyKt(){
   const os=parseInt(document.getElementById('gm-os-val').value)||0;
   if(!pname||pname.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(!cname||cname.startsWith('Выбрать')){toast('Выберите персонажа','er');return}
+  const p=DB.players.find(x=>x.name===pname);
+  const ch=p?.chars.find(c=>c.name===cname);
+  if(ch&&!ch.verified){toast('Персонаж ещё не заверён. Заверьте его в панели «Заверить персонажа»','er');return}
 
   // Собираем все строки репутации
   const repRows=[...document.querySelectorAll('#rep-rows .rep-row')]
@@ -986,8 +999,6 @@ async function gmApplyKt(){
     }))
     .filter(r=>r.fac&&r.val!==0);
 
-  const p=DB.players.find(x=>x.name===pname);
-  const ch=p?.chars.find(c=>c.name===cname);
   if(ch){
     ch.kt[0]=Math.min(ch.kt[0]+kt,ch.kt[1]);ch.os+=os;
     ch.rep=ch.rep||[];
@@ -1369,9 +1380,9 @@ function renderPlayers(){
         ${p.chars?.length ? `
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
             ${p.chars.map(c=>`
-              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px">
-                <div style="font-weight:600;color:var(--gold)">${c.name}</div>
-                <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}${c.verified?' · ✓':''}</div>
+              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65}">
+                <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
               </div>
             `).join('')}
           </div>
@@ -1401,10 +1412,10 @@ function openPlayerDetail(pid){
     charsList.innerHTML='<div style="text-align:center;padding:24px;color:var(--txt-m);font-size:13px">У игрока ещё нет персонажей</div>';
   }else{
     charsList.innerHTML=p.chars.map((c,i)=>`
-      <div class="char-card" id="char-${i}">
+      <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
         <div class="char-head">
           <div>
-            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Проверен">✓</span>':''}</div>
+            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}</div>
             <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
           </div>
           ${canManage?`
