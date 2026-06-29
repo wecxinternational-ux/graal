@@ -184,12 +184,12 @@ textarea.inp{resize:vertical;min-height:80px}
 .crumb-sep{color:var(--txt-m);opacity:.6}
 
 /* ── Inline subguides section (внутри открытого руководства) ── */
-.subguide-section{margin-top:28px;padding:18px 16px;background:var(--bg);border:1px solid var(--bdr);border-radius:12px}
-.subguide-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.subguide-header h4{font-family:var(--fd);font-size:15px;font-weight:700;color:var(--gold);margin:0}
-.subguide-lvl{font-size:10px;color:var(--txt-m);background:var(--bg-h);padding:3px 8px;border-radius:6px;letter-spacing:.04em}
-.subguide-list{display:flex;flex-direction:column;gap:10px}
-.subguide-item{display:flex;align-items:stretch;gap:12px;background:var(--bg-h);border:1px solid var(--bdr-s);border-left:4px solid var(--pur);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .18s}
+.subguide-section{margin-top:28px;padding:22px 22px;background:var(--bg-e);border:1px solid var(--bdr);border-radius:14px}
+.subguide-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.subguide-header h4{font-family:var(--fd);font-size:16px;font-weight:700;color:var(--gold);margin:0}
+.subguide-lvl{display:none}
+.subguide-list{display:flex;flex-direction:column;gap:12px}
+.subguide-item{display:flex;align-items:stretch;gap:14px;background:var(--bg-h);border:1px solid var(--bdr-s);border-left:4px solid var(--pur);border-radius:12px;padding:18px 20px;cursor:pointer;transition:all .18s}
 .subguide-item:hover{border-color:var(--gold);border-left-color:var(--gold);transform:translateX(3px);box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .subguide-arrow{color:var(--pur);font-size:16px;font-weight:700;flex-shrink:0;align-self:flex-start;line-height:1.2}
 .subguide-body{flex:1;min-width:0}

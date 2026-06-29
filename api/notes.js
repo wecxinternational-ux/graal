@@ -31,6 +31,15 @@ module.exports = async (req, res) => {
 
   if (req.method === 'PUT') {
     const { id } = req.query;
+    // Специальный режим: добавление комментария (доступно любому аутентифицированному)
+    if (req.body?.__action === 'addComment') {
+      const existing = (await db.execute({ sql: 'SELECT comments FROM notes WHERE id=?', args: [id] })).rows[0];
+      if (!existing) return res.status(404).json({ error: 'Запись не найдена' });
+      const comments = parseJSON(existing.comments, []);
+      comments.push(req.body.comment);
+      await db.execute({ sql: 'UPDATE notes SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
+      return res.json({ success: true, comments });
+    }
     // Проверка прав: ГМ или автор поста
     if (req.user?.role !== 'gm') {
       const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];

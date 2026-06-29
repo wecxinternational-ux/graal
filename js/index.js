@@ -1154,11 +1154,14 @@ async function addComment(){
   const post=dbArr.find(x=>x.id===threadPostId);if(!post)return;
   post.comments=post.comments||[];
   const newComment={author:currentUser?.username||'Мастер Эрандил',text,time:new Date().toLocaleString('ru-RU')};
-  post.comments.push(newComment);
-  await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
+  // Используем спец-режим добавления комментария — доступен любому пользователю
+  const data=await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
     method: 'PUT',
-    body: JSON.stringify(post)
+    body: JSON.stringify({ __action:'addComment', comment:newComment })
   }, { id: post.id });
+  // Сервер возвращает обновлённый список комментариев
+  if(data&&data.comments)post.comments=data.comments;
+  else post.comments.push(newComment);
   renderComments(post);
   inp.value='';
 }

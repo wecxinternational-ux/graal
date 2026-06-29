@@ -308,6 +308,15 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
 
 app.put('/api/notes/:id', authenticateToken, async (req, res) => {
   const {id} = req.params;
+  // Спец-режим: добавление комментария (доступно любому аутентифицированному)
+  if (req.body?.__action === 'addComment') {
+    const existing = (await db.execute({ sql: 'SELECT comments FROM notes WHERE id=?', args: [id] })).rows[0];
+    if (!existing) return res.status(404).json({ error: 'Запись не найдена' });
+    const comments = parseJSON(existing.comments, []);
+    comments.push(req.body.comment);
+    await db.execute({ sql: 'UPDATE notes SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
+    return res.json({ success: true, comments });
+  }
   const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
   await db.execute({
     sql: `UPDATE notes SET title=?, tags=?, content=?, isPublic=?, author=?, date=?, atts=?, comments=?
@@ -348,6 +357,15 @@ app.post('/api/guides', authenticateToken, async (req, res) => {
 
 app.put('/api/guides/:id', authenticateToken, async (req, res) => {
   const {id} = req.params;
+  // Спец-режим: добавление комментария (доступно любому аутентифицированному)
+  if (req.body?.__action === 'addComment') {
+    const existing = (await db.execute({ sql: 'SELECT comments FROM guides WHERE id=?', args: [id] })).rows[0];
+    if (!existing) return res.status(404).json({ error: 'Запись не найдена' });
+    const comments = parseJSON(existing.comments, []);
+    comments.push(req.body.comment);
+    await db.execute({ sql: 'UPDATE guides SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
+    return res.json({ success: true, comments });
+  }
   const {title, tags, content, author, date, atts, comments, parentId} = req.body;
   await db.execute({
     sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?
