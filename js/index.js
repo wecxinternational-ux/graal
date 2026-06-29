@@ -623,6 +623,21 @@ async function saveGuide(){
 /* ══════════════
    THREAD VIEW
 ══════════════ */
+/* Преобразует текстовые ссылки на изображения в <img>, остальные ссылки оставляет как есть.
+   Также работает с <a href="...">текст</a>, где href — картинка. */
+function renderContent(html){
+  if(!html)return '';
+  // 1) Заменяем текстовые URL на изображения (не внутри тегов)
+  //    Регэксп: http(s)://... с расширением картинки в конце, не окружёнными кавычками/скобками
+  const imgUrlRe=/(^|[\s>])(https?:\/\/[^\s<"'\)]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif))(?=$|[\s<])/gi;
+  html=html.replace(imgUrlRe,(m,p1,url)=>`${p1}<img src="${url}" alt="" class="post-img" loading="lazy">`);
+  // 2) Заменяем <a href="image-url">текст</a> на <img>
+  const aImgRe=/<a[^>]+href=["'](https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif))["'][^>]*>([^<]*)<\/a>/gi;
+  html=html.replace(aImgRe,(m,url,text)=>`<img src="${url}" alt="${text||''}" class="post-img" loading="lazy">`);
+  // 3) Добавляем target=_blank всем оставшимся ссылкам
+  html=html.replace(/<a(?![^>]*target=)/gi,'<a target="_blank" rel="noopener"');
+  return html;
+}
 function openThread(id,type){
   const db=type==='note'?DB.notes:DB.guides;
   const post=db.find(x=>x.id===id);if(!post)return;
@@ -631,14 +646,150 @@ function openThread(id,type){
   document.getElementById('thread-badges').innerHTML=
     post.tags.map(t=>`<span class="ntag">${t}</span>`).join('')+
     (post.isPublic?'<span class="pub-badge">Публичная</span>':'');
-  document.getElementById('thread-content').innerHTML=post.content;
+  document.getElementById('thread-content').innerHTML=renderContent(post.content);
   const atts=post.atts||[];
   document.getElementById('thread-atts').innerHTML=atts.length?atts.map(a=>`
     <div class="att-chip" onclick="previewAtt('${a.name}','${a.data}','${a.type}')">
       <span>${a.type.startsWith('image/')?'🖼':'📎'}</span>${a.name}
     </div>`).join(''):'';
   renderComments(post);
+  // Права на редактирование/удаление: ГМ или автор
+  const isGm=currentUser?.role==='gm';
+  const isAuthor=post.author===currentUser?.username;
+  document.getElementById('thread-edit-btn').style.display=(isGm||isAuthor)?'inline-flex':'none';
+  document.getElementById('thread-del-btn').style.display=(isGm||isAuthor)?'inline-flex':'none';
   document.getElementById('thread-view').classList.add('on');
+}
+
+/* Редактирование существующего поста */
+function editThread(){
+  if(!threadPostId||!threadType)return;
+  const db=threadType==='note'?DB.notes:DB.guides;
+  const post=db.find(x=>x.id===threadPostId);if(!post)return;
+  const isGm=currentUser?.role==='gm';
+  const isAuthor=post.author===currentUser?.username;
+  if(!(isGm||isAuthor)){toast('Нет прав на редактирование','er');return}
+
+  if(threadType==='note'){
+    // Заполняем модалку новой заметки данными поста
+    document.getElementById('nn-title').value=post.title;
+    document.getElementById('nn-editor').innerHTML=post.content;
+    document.getElementById('nn-public').checked=!!post.isPublic;
+    // Теги: стандартные + кастомные из поста
+    const customTags=(post.tags||[]).filter(t=>!ALL_TAGS.includes(t));
+    buildTagsSelect('nn-tags-sel',customTags);
+    (post.tags||[]).forEach(t=>{
+      const cb=document.querySelector(`#nn-tags-sel input[value="${t.replace(/"/g,'&quot;')}']`);
+      if(cb)cb.checked=true;
+    });
+    // Аттачи
+    noteAtts.nn=[...(post.atts||[])];
+    renderAttList('nn');
+    // Меняем заголовок модалки и кнопку сохранения
+    document.querySelector('#m-new-note .mh h2').textContent='Редактирование статьи';
+    const nnBtn=document.querySelector('#m-new-note .mf .btn-p');
+    if(nnBtn){nnBtn.textContent='Сохранить';nnBtn.setAttribute('onclick','saveNoteEdit()')}
+    closeThread();
+    openModal('m-new-note');
+  }else{
+    document.getElementById('ng-title').value=post.title;
+    document.getElementById('ng-editor').innerHTML=post.content;
+    const customTags=(post.tags||[]).filter(t=>!ALL_TAGS.includes(t));
+    buildTagsSelect('ng-tags-sel',customTags);
+    (post.tags||[]).forEach(t=>{
+      const cb=document.querySelector(`#ng-tags-sel input[value="${t.replace(/"/g,'&quot;')}']`);
+      if(cb)cb.checked=true;
+    });
+    noteAtts.ng=[...(post.atts||[])];
+    renderAttList('ng');
+    document.querySelector('#m-new-guide .mh h2').textContent='Редактирование записи';
+    const ngBtn=document.querySelector('#m-new-guide .mf .btn-p');
+    if(ngBtn){ngBtn.textContent='Сохранить';ngBtn.setAttribute('onclick','saveGuideEdit()')}
+    closeThread();
+    openModal('m-new-guide');
+  }
+}
+
+async function saveNoteEdit(){
+  const post=DB.notes.find(x=>x.id===threadPostId);
+  if(!post){toast('Пост не найден','er');return}
+  const title=document.getElementById('nn-title').value.trim();
+  if(!title){toast('Введите заголовок','er');return}
+  post.title=title;
+  post.tags=getSelectedTags('nn-tags-sel');
+  post.content=document.getElementById('nn-editor').innerHTML;
+  post.isPublic=document.getElementById('nn-public').checked;
+  post.atts=noteAtts.nn||[];
+  post.editedAt=new Date().toISOString().split('T')[0];
+  try{
+    await apiRequest('/notes',{method:'PUT',body:JSON.stringify(post)},{id:post.id});
+    toast('Статья обновлена','ok');
+    closeModal('m-new-note');
+    resetNoteModal();
+    renderNotes();
+    buildTagsFilter('note-tags-filter',renderNotes,DB.notes.flatMap(n=>n.tags||[]));
+  }catch(e){toast(e.message||'Ошибка','er')}
+}
+
+async function saveGuideEdit(){
+  const post=DB.guides.find(x=>x.id===threadPostId);
+  if(!post){toast('Пост не найден','er');return}
+  const title=document.getElementById('ng-title').value.trim();
+  if(!title){toast('Введите заголовок','er');return}
+  post.title=title;
+  post.tags=getSelectedTags('ng-tags-sel');
+  post.content=document.getElementById('ng-editor').innerHTML;
+  post.atts=noteAtts.ng||[];
+  post.editedAt=new Date().toISOString().split('T')[0];
+  try{
+    await apiRequest('/guides',{method:'PUT',body:JSON.stringify(post)},{id:post.id});
+    toast('Запись обновлена','ok');
+    closeModal('m-new-guide');
+    resetGuideModal();
+    renderGuide();
+    buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
+  }catch(e){toast(e.message||'Ошибка','er')}
+}
+
+async function deleteThread(){
+  if(!threadPostId||!threadType)return;
+  const db=threadType==='note'?DB.notes:DB.guides;
+  const post=db.find(x=>x.id===threadPostId);if(!post)return;
+  const isGm=currentUser?.role==='gm';
+  const isAuthor=post.author===currentUser?.username;
+  if(!(isGm||isAuthor)){toast('Нет прав на удаление','er');return}
+  if(!confirm(`Удалить «${post.title}»?`))return;
+  try{
+    await apiRequest(`/${threadType==='note'?'notes':'guides'}`,{method:'DELETE'},{id:post.id});
+    const idx=db.findIndex(x=>x.id===post.id);
+    if(idx>=0)db.splice(idx,1);
+    toast('Удалено','ok');
+    closeThread();
+    if(threadType==='note')renderNotes();else renderGuide();
+  }catch(e){toast(e.message||'Ошибка','er')}
+}
+
+/* Сброс модалок в режим создания */
+function resetNoteModal(){
+  document.querySelector('#m-new-note .mh h2').textContent='Новая статья';
+  const btn=document.querySelector('#m-new-note .mf .btn-p');
+  if(btn){btn.textContent='Опубликовать';btn.setAttribute('onclick','saveNote()')}
+  document.getElementById('nn-title').value='';
+  document.getElementById('nn-editor').innerHTML='';
+  document.getElementById('nn-public').checked=false;
+  document.getElementById('nn-att-list').innerHTML='';
+  noteAtts.nn=[];
+  buildTagsSelect('nn-tags-sel');
+}
+function resetGuideModal(){
+  document.querySelector('#m-new-guide .mh h2').textContent='Новая запись в Руководстве';
+  const btn=document.querySelector('#m-new-guide .mf .btn-p');
+  if(btn){btn.textContent='Сохранить';btn.setAttribute('onclick','saveGuide()')}
+  document.getElementById('ng-title').value='';
+  document.getElementById('ng-editor').innerHTML='';
+  document.getElementById('ng-att-list').innerHTML='';
+  noteAtts.ng=[];
+  buildTagsSelect('ng-tags-sel');
 }
 function closeThread(){document.getElementById('thread-view').classList.remove('on');}
 function renderComments(post){

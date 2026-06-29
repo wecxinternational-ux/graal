@@ -329,6 +329,8 @@
       <h2 id="thread-title"></h2>
       <div style="display:flex;gap:8px;align-items:center">
         <div id="thread-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <button class="btn btn-g" id="thread-edit-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="editThread()">✎ Изменить</button>
+        <button class="btn btn-x" id="thread-del-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="deleteThread()">✕ Удалить</button>
         <button class="mc-btn" onclick="closeThread()">✕</button>
       </div>
     </div>
@@ -407,7 +409,7 @@
 <!-- New Note (master) -->
 <div class="mo" id="m-new-note">
   <div class="md md-w">
-    <div class="mh"><h2>Новая статья</h2><button class="mc-btn" onclick="closeModal('m-new-note')">✕</button></div>
+    <div class="mh"><h2>Новая статья</h2><button class="mc-btn" onclick="closeModal('m-new-note');resetNoteModal()">✕</button></div>
     <div class="mb">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="fg"><label>Заголовок</label><input class="inp" id="nn-title" placeholder="Название статьи"></div>
@@ -434,7 +436,7 @@
       </div>
     </div>
     <div class="mf">
-      <button class="btn btn-g" onclick="closeModal('m-new-note')">Отмена</button>
+      <button class="btn btn-g" onclick="closeModal('m-new-note');resetNoteModal()">Отмена</button>
       <button class="btn btn-p" onclick="saveNote()">Опубликовать</button>
     </div>
   </div>
@@ -443,7 +445,7 @@
 <!-- New Guide post -->
 <div class="mo" id="m-new-guide">
   <div class="md md-w">
-    <div class="mh"><h2>Новая запись в Руководстве</h2><button class="mc-btn" onclick="closeModal('m-new-guide')">✕</button></div>
+    <div class="mh"><h2>Новая запись в Руководстве</h2><button class="mc-btn" onclick="closeModal('m-new-guide');resetGuideModal()">✕</button></div>
     <div class="mb">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="fg"><label>Заголовок</label><input class="inp" id="ng-title" placeholder="Название записи"></div>
@@ -469,7 +471,7 @@
       </div>
     </div>
     <div class="mf">
-      <button class="btn btn-g" onclick="closeModal('m-new-guide')">Отмена</button>
+      <button class="btn btn-g" onclick="closeModal('m-new-guide');resetGuideModal()">Отмена</button>
       <button class="btn btn-p" onclick="saveGuide()">Сохранить</button>
     </div>
   </div>

@@ -163,6 +163,8 @@ textarea.inp{resize:vertical;min-height:80px}
 .thread-content li{margin-bottom:4px}
 .thread-content a{color:var(--pur-b);text-decoration:underline}
 .thread-content img{max-width:100%;border-radius:var(--r);margin:8px 0;border:1px solid var(--bdr)}
+.post-img{display:block;max-width:100%;height:auto;border-radius:var(--r);margin:10px 0;border:1px solid var(--bdr);cursor:zoom-in;transition:transform .2s}
+.post-img:hover{transform:scale(1.01);border-color:var(--bdr-s)}
 .thread-content table{width:100%;border-collapse:collapse;margin:12px 0}
 .thread-content th{background:var(--bg-h);border:1px solid var(--bdr);padding:8px 12px;font-family:var(--fd);font-size:12px;font-weight:700;color:var(--gold);text-align:left}
 .thread-content td{border:1px solid var(--bdr);padding:7px 12px;font-size:13px}

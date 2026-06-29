@@ -30,8 +30,14 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
-    if (!await requireGm(req, res)) return;
     const { id } = req.query;
+    // Проверка прав: ГМ или автор поста
+    if (req.user?.role !== 'gm') {
+      const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
+      if (!existing || existing.author !== req.user?.username) {
+        return res.status(403).json({ error: 'Нет прав на редактирование' });
+      }
+    }
     const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
     await db.execute({
       sql: `UPDATE notes SET title=?, tags=?, content=?, isPublic=?, author=?, date=?, atts=?, comments=?
@@ -41,6 +47,18 @@ module.exports = async (req, res) => {
         JSON.stringify(atts), JSON.stringify(comments), id
       ]
     });
+    return res.json({ success: true });
+  }
+
+  if (req.method === 'DELETE') {
+    const { id } = req.query;
+    if (req.user?.role !== 'gm') {
+      const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
+      if (!existing || existing.author !== req.user?.username) {
+        return res.status(403).json({ error: 'Нет прав на удаление' });
+      }
+    }
+    await db.execute({ sql: 'DELETE FROM notes WHERE id=?', args: [id] });
     return res.json({ success: true });
   }
 
