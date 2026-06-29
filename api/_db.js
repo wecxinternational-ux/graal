@@ -84,6 +84,16 @@ const SCHEMA_STATEMENTS = [
     "desc" TEXT,
     cost INTEGER,
     status TEXT DEFAULT 'pending'
+  )`,
+  `CREATE TABLE IF NOT EXISTS gm_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    createdById INTEGER,
+    createdByName TEXT,
+    usedById INTEGER,
+    usedByName TEXT,
+    usedAt TEXT,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
   )`
 ];
 
@@ -142,7 +152,7 @@ async function seedData() {
         'artemis#0042',
         240,
         2,
-        JSON.stringify([{name:'Аэрис Тень',class:'Плут',subclass:'Аркановый трикстер',level:7,kt:[4,8],os:60,verified:true,rep:[]}])
+        JSON.stringify([{name:'Аэрис Тень',class:'Плут',subclass:'Аркановый трикстер',level:7,kt:[4,8],os:[15,20,15,10],verified:true,rep:[]}])
       ]
     });
 

@@ -33,6 +33,24 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware: только для ГМ
+const requireGm = (req, res, next) => {
+  if (req.user?.role !== 'gm') {
+    return res.status(403).json({ error: 'Требуется роль ГМ' });
+  }
+  next();
+};
+
+// Генерация одноразового кода формата GM-XXXXXX
+function generateGmCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'GM-';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 // Helper функции
 const parseJSON = (str, def) => {
   try { return JSON.parse(str); } catch { return def; }
@@ -40,17 +58,46 @@ const parseJSON = (str, def) => {
 
 // Auth endpoints
 app.post('/api/auth/register', async (req, res) => {
-  const { username, email, password } = req.body;
+  const { username, email, password, role, gmCode } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Все поля обязательны' });
   }
 
+  const userRole = role === 'gm' ? 'gm' : 'player';
+
+  // Для регистрации ГМ требуется одноразовый код.
+  // Bootstrap: если ГМов ещё нет — первый может зарегистрироваться без кода.
+  if (userRole === 'gm') {
+    let needsCode = true;
+    if (!gmCode) {
+      const gmCount = await db.execute({ sql: "SELECT COUNT(*) as count FROM users WHERE role = 'gm'" });
+      if (gmCount.rows[0].count === 0) {
+        needsCode = false;
+      }
+    }
+    if (needsCode) {
+      if (!gmCode) {
+        return res.status(400).json({ error: 'Для регистрации ГМ требуется код приглашения' });
+      }
+      const codeResult = await db.execute({
+        sql: 'SELECT * FROM gm_codes WHERE code = ?',
+        args: [gmCode.trim().toUpperCase()]
+      });
+      if (codeResult.rows.length === 0) {
+        return res.status(400).json({ error: 'Неверный код приглашения' });
+      }
+      if (codeResult.rows[0].usedById) {
+        return res.status(400).json({ error: 'Этот код уже использован' });
+      }
+    }
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.execute({
-      sql: 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-      args: [username, email, hashedPassword]
+      sql: 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
+      args: [username, email, hashedPassword, userRole]
     });
     const userId = Number(result.lastInsertRowid);
 
@@ -60,13 +107,116 @@ app.post('/api/auth/register', async (req, res) => {
       args: [username, '', userId]
     });
 
-    const token = jwt.sign({ id: userId, username, role: 'player' }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: userId, username, email, role: 'player' } });
+    // Помечаем код как использованный (если был код, не bootstrap)
+    if (userRole === 'gm' && gmCode) {
+      await db.execute({
+        sql: 'UPDATE gm_codes SET usedById = ?, usedByName = ?, usedAt = CURRENT_TIMESTAMP WHERE code = ?',
+        args: [userId, username, gmCode.trim().toUpperCase()]
+      });
+    }
+
+    const token = jwt.sign({ id: userId, username, role: userRole }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: userId, username, email, role: userRole } });
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
       return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });
     }
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Повышение игрока до ГМ по одноразовому коду
+app.post('/api/auth/promote', authenticateToken, async (req, res) => {
+  if (req.user?.role === 'gm') {
+    return res.status(400).json({ error: 'Вы уже являетесь ГМ' });
+  }
+  const { gmCode } = req.body || {};
+  if (!gmCode) {
+    return res.status(400).json({ error: 'Введите код приглашения' });
+  }
+  const normalizedCode = String(gmCode).trim().toUpperCase();
+  try {
+    const codeResult = await db.execute({
+      sql: 'SELECT * FROM gm_codes WHERE code = ?',
+      args: [normalizedCode]
+    });
+    if (codeResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Неверный код приглашения' });
+    }
+    if (codeResult.rows[0].usedById) {
+      return res.status(400).json({ error: 'Этот код уже использован' });
+    }
+
+    await db.execute({
+      sql: 'UPDATE users SET role = ? WHERE id = ?',
+      args: ['gm', req.user.id]
+    });
+    await db.execute({
+      sql: 'UPDATE gm_codes SET usedById = ?, usedByName = ?, usedAt = CURRENT_TIMESTAMP WHERE code = ?',
+      args: [req.user.id, req.user.username, normalizedCode]
+    });
+
+    const token = jwt.sign(
+      { id: req.user.id, username: req.user.username, role: 'gm' },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+    res.json({ token, user: { id: req.user.id, username: req.user.username, role: 'gm' } });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера', details: err.message });
+  }
+});
+
+// GM invite codes: список, создание, удаление
+app.get('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
+  try {
+    const result = await db.execute({ sql: 'SELECT * FROM gm_codes ORDER BY id DESC' });
+    const codes = result.rows.map(r => ({
+      id: r.id,
+      code: r.code,
+      createdByName: r.createdByName,
+      usedByName: r.usedByName,
+      usedAt: r.usedAt,
+      createdAt: r.createdAt,
+      used: !!r.usedById
+    }));
+    res.json({ codes });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка получения кодов', details: err.message });
+  }
+});
+
+app.post('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
+  try {
+    let code = generateGmCode();
+    let attempts = 0;
+    while (attempts < 5) {
+      const exists = await db.execute({ sql: 'SELECT id FROM gm_codes WHERE code = ?', args: [code] });
+      if (exists.rows.length === 0) break;
+      code = generateGmCode();
+      attempts++;
+    }
+    await db.execute({
+      sql: 'INSERT INTO gm_codes (code, createdById, createdByName) VALUES (?, ?, ?)',
+      args: [code, req.user.id, req.user.username]
+    });
+    res.json({ code, createdByName: req.user.username, createdAt: new Date().toISOString(), used: false });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка создания кода', details: err.message });
+  }
+});
+
+app.delete('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
+  try {
+    const id = req.query?.id || req.body?.id;
+    if (!id) return res.status(400).json({ error: 'Не указан id кода' });
+    const existing = await db.execute({ sql: 'SELECT usedById FROM gm_codes WHERE id = ?', args: [id] });
+    if (existing.rows.length === 0) return res.status(404).json({ error: 'Код не найден' });
+    if (existing.rows[0].usedById) return res.status(400).json({ error: 'Нельзя удалить использованный код' });
+    await db.execute({ sql: 'DELETE FROM gm_codes WHERE id = ?', args: [id] });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка удаления кода', details: err.message });
   }
 });
 
@@ -233,6 +383,12 @@ app.put('/api/players/:id', authenticateToken, async (req, res) => {
           WHERE id=?`,
     args: [name, discord, points, slots, JSON.stringify(chars), id]
   });
+  res.json({ success: true });
+});
+
+app.delete('/api/players/:id', authenticateToken, requireGm, async (req, res) => {
+  const {id} = req.params;
+  await db.execute({ sql: 'DELETE FROM players WHERE id=?', args: [id] });
   res.json({ success: true });
 });
 

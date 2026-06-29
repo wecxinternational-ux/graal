@@ -43,5 +43,14 @@ module.exports = async (req, res) => {
     return res.json({ success: true });
   }
 
+  // DELETE — только ГМ может удалять профили игроков
+  if (req.method === 'DELETE') {
+    if (!await requireGm(req, res)) return;
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Не указан id' });
+    await db.execute({ sql: 'DELETE FROM players WHERE id=?', args: [id] });
+    return res.json({ success: true });
+  }
+
   return res.status(405).json({ error: 'Метод не поддерживается' });
 };

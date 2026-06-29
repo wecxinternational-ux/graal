@@ -50,6 +50,13 @@ function switchAuthTab(tab) {
   document.getElementById('auth-error').style.display = 'none';
 }
 
+// Показ/скрытие поля кода приглашения при выборе роли ГМ в форме регистрации
+function updateGmCodeVisibility() {
+  const role = document.querySelector('input[name="register-role"]:checked')?.value || 'player';
+  const wrap = document.getElementById('register-gmcode-wrap');
+  if (wrap) wrap.style.display = role === 'gm' ? 'block' : 'none';
+}
+
 function showAuthError(message) {
   const el = document.getElementById('auth-error');
   el.textContent = message;
@@ -86,16 +93,21 @@ async function register() {
   const email = document.getElementById('register-email').value.trim();
   const password = document.getElementById('register-password').value;
   const role = document.querySelector('input[name="register-role"]:checked')?.value || 'player';
+  const gmCode = document.getElementById('register-gmcode')?.value.trim();
 
   if (!username || !email || !password) {
     showAuthError('Пожалуйста, заполните все поля');
     return;
   }
 
+  // Код приглашения для ГМ проверяется на бэкенде.
+  // Bootstrap: первый ГМ может зарегистрироваться без кода.
   try {
+    const payload = { username, email, password, role };
+    if (role === 'gm' && gmCode) payload.gmCode = gmCode;
     const data = await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password, role })
+      body: JSON.stringify(payload)
     });
     authToken = data.token;
     currentUser = data.user;
@@ -131,6 +143,9 @@ function showApp() {
   // Применяем роль к body — CSS скрывает .gm-only / .player-only
   document.body.classList.remove('role-gm', 'role-player');
   document.body.classList.add(currentUser?.role === 'gm' ? 'role-gm' : 'role-player');
+  // Кнопка «Стать ГМ» видна только игрокам
+  const promoteBtn = document.getElementById('promote-btn');
+  if (promoteBtn) promoteBtn.style.display = currentUser?.role === 'gm' ? 'none' : 'block';
   updateUserProfile();
   // Для игрока активируем вкладку 'guide' (items/notes/gm/logs скрыты)
   const firstTab = currentUser?.role === 'gm' ? 'items' : 'guide';
@@ -961,6 +976,7 @@ function renderGm(){
   fillGmChars('gm-kt-player','gm-kt-char');
   fillGmChars('gm-cer-player','gm-cer-char');
   renderTx();
+  loadGmCodes();
   // Гарантируем хотя бы одну пустую строку репутации
   if(!document.querySelector('#rep-rows .rep-row'))addRepRow();
 }
@@ -983,6 +999,7 @@ async function gmApplyKt(){
   const pname=document.getElementById('gm-kt-player').value;
   const cname=document.getElementById('gm-kt-char').value;
   const kt=parseInt(document.getElementById('gm-kt-val').value)||0;
+  const osStage=parseInt(document.getElementById('gm-os-stage').value)||0;
   const os=parseInt(document.getElementById('gm-os-val').value)||0;
   if(!pname||pname.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(!cname||cname.startsWith('Выбрать')){toast('Выберите персонажа','er');return}
@@ -1000,7 +1017,9 @@ async function gmApplyKt(){
     .filter(r=>r.fac&&r.val!==0);
 
   if(ch){
-    ch.kt[0]=Math.min(ch.kt[0]+kt,ch.kt[1]);ch.os+=os;
+    ch.kt[0]=Math.min(ch.kt[0]+kt,ch.kt[1]);
+    ch.os=normalizeOs(ch.os);
+    ch.os[osStage]=(ch.os[osStage]||0)+os;
     ch.rep=ch.rep||[];
     // Применяем каждую репутацию
     for(const r of repRows){
@@ -1026,7 +1045,7 @@ async function gmApplyKt(){
   // Логируем
   let logParts=[];
   if(kt)logParts.push(`+${kt} КТ`);
-  if(os)logParts.push(`+${os} ОС`);
+  if(os)logParts.push(`+${os} ОС (этап ${osStage+1})`);
   for(const r of repRows){
     const noteStr=r.note?` <em style="color:var(--txt-s)">(${r.note})</em>`:'';
     logParts.push(`+${r.val} репутации [<span class="li-fac">${r.fac}</span>]${noteStr}`);
@@ -1086,6 +1105,100 @@ async function rejectTx(id){
     body: JSON.stringify(t)
   }, { id: t.id });
   toast('Транзакция отклонена','er');renderTx();
+}
+
+/* ── GM invite codes (одноразовые коды для повышения до ГМ) ── */
+async function generateGmCode(){
+  try{
+    const data=await apiRequest('/gm-codes',{method:'POST'});
+    // Показываем свежий код
+    const box=document.getElementById('gm-code-new');
+    const val=document.getElementById('gm-code-new-val');
+    if(box&&val){
+      val.textContent=data.code;
+      box.style.display='block';
+    }
+    toast('Код сгенерирован: '+data.code,'ok');
+    await loadGmCodes();
+  }catch(e){
+    toast(e.message||'Ошибка генерации кода','er');
+  }
+}
+
+async function loadGmCodes(){
+  try{
+    const data=await apiRequest('/gm-codes');
+    const list=document.getElementById('gm-codes-list');
+    if(!list)return;
+    const codes=data.codes||[];
+    if(!codes.length){
+      list.innerHTML='<div style="font-size:12px;color:var(--txt-m);text-align:center;padding:14px">Кодов пока нет</div>';
+      return;
+    }
+    list.innerHTML=codes.map(c=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-s);border:1px solid var(--bdr);border-radius:6px;margin-bottom:6px">
+        <code style="font-family:var(--fd);font-weight:700;color:${c.used?'var(--txt-m)':'var(--gold)'};letter-spacing:1px;flex:1">${c.code}</code>
+        ${c.used
+          ? `<span style="font-size:11px;color:var(--txt-m)">использован ${c.usedByName||''}</span>`
+          : `<span style="font-size:11px;color:#22c55e">активен</span><button class="bic btn-x" style="width:24px;height:24px;font-size:12px" onclick="deleteGmCode(${c.id})" title="Удалить">✕</button>`}
+      </div>
+    `).join('');
+  }catch(e){
+    // Тихо игнорируем — функция вызывается при переключении на вкладку ГМ
+  }
+}
+
+async function deleteGmCode(id){
+  if(!confirm('Удалить этот неиспользованный код?'))return;
+  try{
+    await apiRequest('/gm-codes',{method:'DELETE'}, { id });
+    toast('Код удалён','ok');
+    await loadGmCodes();
+  }catch(e){
+    toast(e.message||'Ошибка удаления','er');
+  }
+}
+
+function copyGmCode(){
+  const val=document.getElementById('gm-code-new-val')?.textContent||'';
+  if(!val)return;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(val).then(()=>toast('Код скопирован','ok'));
+  }else{
+    // Фолбек для старых браузеров
+    const ta=document.createElement('textarea');
+    ta.value=val;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('Код скопирован','ok')}catch{toast('Не удалось скопировать','er')}
+    document.body.removeChild(ta);
+  }
+}
+
+/* ── Promote player to GM (по одноразовому коду) ── */
+async function promoteToGm(){
+  const code=document.getElementById('promote-gmcode')?.value.trim();
+  if(!code){toast('Введите код приглашения','er');return}
+  try{
+    const data=await apiRequest('/auth/promote',{
+      method:'POST',
+      body:JSON.stringify({ gmCode:code })
+    });
+    // Обновляем токен и текущего пользователя
+    authToken=data.token;
+    currentUser=data.user;
+    localStorage.setItem('authToken',authToken);
+    localStorage.setItem('currentUser',JSON.stringify(currentUser));
+    closeModal('m-promote');
+    // Переприменяем роль в UI
+    document.body.classList.remove('role-gm','role-player');
+    document.body.classList.add('role-gm');
+    document.getElementById('user-role').textContent='Гейммастер';
+    // Подгружаем данные заново, чтобы увидеть ГМ-вкладки
+    await loadData();
+    showApp();
+    toast('Поздравляем! Вы получили права ГМ.','ok');
+  }catch(e){
+    toast(e.message||'Ошибка активации кода','er');
+  }
 }
 
 /* ── Reputation rows (multi-source) ── */
@@ -1360,7 +1473,8 @@ function closeDrilldown(){
 function renderPlayers(){
   const g=document.getElementById('players-grid');
   // Игрок видит только своего персонажа (по userId), ГМ видит всех
-  const list = currentUser?.role === 'gm'
+  const isGm=currentUser?.role==='gm';
+  const list = isGm
     ? DB.players
     : DB.players.filter(p => p.userId === currentUser?.id || p.name === currentUser?.username);
   if(!list.length){
@@ -1368,7 +1482,8 @@ function renderPlayers(){
     return;
   }
   g.innerHTML=list.map(p=>`
-    <div class="card ic" style="cursor:pointer" onclick="openPlayerDetail(${p.id})">
+    <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerDetail(${p.id})">
+      ${isGm?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить игрока">✕</button>`:''}
       <div class="ic-ph">👤</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
@@ -1427,7 +1542,10 @@ function openPlayerDetail(pid){
         </div>
         <div class="char-stats">
           <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
-          <div><span class="cs-l">ОС</span><span class="cs-v">${c.os||0}</span></div>
+          <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
+          <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
+          <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
+          <div><span class="cs-l">ОС этап 4</span><span class="cs-v">${normalizeOs(c.os)[3]}</span></div>
           <div><span class="cs-l">Создан</span><span class="cs-v">${c.createdAt||'—'}</span></div>
         </div>
         ${c.rep&&c.rep.length?`
@@ -1451,7 +1569,10 @@ function openPlayerDetail(pid){
             <div class="fg"><label>Уровень</label><input class="inp" type="number" min="1" max="20" id="ce-level-${i}" value="${c.level||1}"></div>
             <div class="fg"><label>КТ мин</label><input class="inp" type="number" id="ce-ktmin-${i}" value="${c.kt?c.kt[0]:0}"></div>
             <div class="fg"><label>КТ макс</label><input class="inp" type="number" id="ce-ktmax-${i}" value="${c.kt?c.kt[1]:0}"></div>
-            <div class="fg"><label>ОС</label><input class="inp" type="number" id="ce-os-${i}" value="${c.os||0}"></div>
+            <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="ce-os-1-${i}" value="${normalizeOs(c.os)[0]}"></div>
+            <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${i}" value="${normalizeOs(c.os)[1]}"></div>
+            <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
+            <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
             <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="2">${c.desc||''}</textarea></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:8px">
@@ -1485,7 +1606,12 @@ async function saveChar(idx){
   const ktMin=parseInt(document.getElementById(`ce-ktmin-${idx}`).value)||0;
   const ktMax=parseInt(document.getElementById(`ce-ktmax-${idx}`).value)||0;
   c.kt=[ktMin,ktMax];
-  c.os=parseInt(document.getElementById(`ce-os-${idx}`).value)||0;
+  c.os=[
+    parseInt(document.getElementById(`ce-os-1-${idx}`).value)||0,
+    parseInt(document.getElementById(`ce-os-2-${idx}`).value)||0,
+    parseInt(document.getElementById(`ce-os-3-${idx}`).value)||0,
+    parseInt(document.getElementById(`ce-os-4-${idx}`).value)||0
+  ];
   c.desc=document.getElementById(`ce-desc-${idx}`).value.trim();
 
   try{
@@ -1520,7 +1646,34 @@ async function deleteChar(idx){
   }
 }
 
+/* Удаление профиля игрока (только ГМ) */
+async function deletePlayer(id,name){
+  if(!confirm(`Удалить игрока «${name}»?\nЭто действие необратимо. Все его персонажи будут потеряны.`))return;
+  try{
+    await apiRequest('/players',{method:'DELETE'},{id});
+    // Удаляем из локальной копии
+    DB.players=DB.players.filter(p=>p.id!==id);
+    // Если удаляли открытый в модалке профиль — закрываем её
+    if(currentPlayerId===id){
+      closeModal('m-player-detail');
+      currentPlayerId=null;
+    }
+    await addLog('revoke','🗑',`Игрок <span class="li-pl">${name}</span> удалён. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+    toast(`Игрок «${name}» удалён`,'ok');
+    renderPlayers();
+  }catch(e){
+    toast(e.message||'Ошибка удаления игрока','er');
+  }
+}
+
 /* ── Create character ── */
+// ОС хранится как массив [этап1, этап2, этап3, этап4].
+// Старые данные (число) нормализуются через normalizeOs().
+function normalizeOs(os){
+  if(Array.isArray(os))return [os[0]||0,os[1]||0,os[2]||0,os[3]||0];
+  const n=parseInt(os)||0;
+  return [0,0,0,n];
+}
 async function createCharacter(){
   const name=document.getElementById('nc-name').value.trim();
   const cls=document.getElementById('nc-class').value.trim();
@@ -1528,7 +1681,12 @@ async function createCharacter(){
   const level=parseInt(document.getElementById('nc-level').value)||1;
   const ktMin=parseInt(document.getElementById('nc-kt-min').value)||0;
   const ktMax=parseInt(document.getElementById('nc-kt-max').value)||0;
-  const os=parseInt(document.getElementById('nc-os').value)||0;
+  const os=[
+    parseInt(document.getElementById('nc-os-1').value)||0,
+    parseInt(document.getElementById('nc-os-2').value)||0,
+    parseInt(document.getElementById('nc-os-3').value)||0,
+    parseInt(document.getElementById('nc-os-4').value)||0
+  ];
   const desc=document.getElementById('nc-desc').value.trim();
 
   if(!name){
@@ -1591,7 +1749,10 @@ async function createCharacter(){
     document.getElementById('nc-level').value='1';
     document.getElementById('nc-kt-min').value='0';
     document.getElementById('nc-kt-max').value='0';
-    document.getElementById('nc-os').value='0';
+    document.getElementById('nc-os-1').value='0';
+    document.getElementById('nc-os-2').value='0';
+    document.getElementById('nc-os-3').value='0';
+    document.getElementById('nc-os-4').value='0';
   }catch(e){
     toast(e.message||'Ошибка создания персонажа','er');
   }

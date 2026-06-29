@@ -59,7 +59,7 @@
         <label>Роль на сервере</label>
         <div class="role-pick">
           <label class="role-opt">
-            <input type="radio" name="register-role" value="player" checked>
+            <input type="radio" name="register-role" value="player" checked onchange="updateGmCodeVisibility()">
             <div class="role-card">
               <div class="role-ic">🗡</div>
               <div class="role-info">
@@ -69,16 +69,22 @@
             </div>
           </label>
           <label class="role-opt">
-            <input type="radio" name="register-role" value="gm">
+            <input type="radio" name="register-role" value="gm" onchange="updateGmCodeVisibility()">
             <div class="role-card">
               <div class="role-ic">🛡</div>
               <div class="role-info">
                 <div class="role-name">Мастер (ГМ)</div>
-                <div class="role-desc">Полный доступ: база предметов, заметки, журнал, панель гейммастера</div>
+                <div class="role-desc">Полный доступ: база предметов, заметки, журнал, панель гейммастера. Требуется код приглашения.</div>
               </div>
             </div>
           </label>
         </div>
+      </div>
+      <br>
+      <div class="fg" id="register-gmcode-wrap" style="display:none">
+        <label>Код приглашения ГМ</label>
+        <input type="text" id="register-gmcode" class="inp" placeholder="GM-XXXXXX" autocomplete="off">
+        <small style="color:var(--txt-s);display:block;margin-top:4px">Код выдаётся действующим ГМом. Если ГМов ещё нет — поле можно оставить пустым.</small>
       </div>
       <br>
       <button class="btn btn-p btn-full" onclick="register()">Зарегистрироваться</button>
@@ -114,6 +120,7 @@
       <div><div class="usr-n" id="user-name">Мастер Эрандил</div><div class="usr-r" id="user-role">Демиург Горизонта</div></div>
       <button class="btn btn-g" style="margin-left: auto; padding: 4px 8px; font-size: 12px;" onclick="logout()">Выход</button>
     </div>
+    <button class="btn btn-p" id="promote-btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px;display:none" onclick="openModal('m-promote')">🎟 Стать ГМ (по коду)</button>
   </div>
 </aside>
 
@@ -193,7 +200,13 @@
         <div class="fg"><label>Персонаж</label><select class="sel" id="gm-kt-char"></select></div>
         <div class="ktg">
           <div><label>КТ</label><input class="inp" type="number" id="gm-kt-val" placeholder="+0"></div>
-          <div><label>ОС</label><input class="inp" type="number" id="gm-os-val" placeholder="+0"></div>
+          <div><label>ОС этап</label><select class="sel" id="gm-os-stage">
+            <option value="0">Этап 1</option>
+            <option value="1">Этап 2</option>
+            <option value="2">Этап 3</option>
+            <option value="3">Этап 4</option>
+          </select></div>
+          <div><label>Кол-во ОС</label><input class="inp" type="number" id="gm-os-val" placeholder="+0"></div>
         </div>
         <div class="fg">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -221,6 +234,19 @@
       <div class="gmc-ic">🔑</div>
       <h3>Транзакции</h3><p>Подтверждение покупок за поинты</p>
       <div class="txl" id="tx-list"></div>
+    </div>
+    <div class="gmc">
+      <div class="gmc-ic">🎟</div>
+      <h3>Коды приглашения ГМ</h3><p>Одноразовые коды для регистрации/повышения до ГМ</p>
+      <button class="btn btn-p" onclick="generateGmCode()" style="margin-bottom:10px">+ Сгенерировать код</button>
+      <div id="gm-code-new" style="display:none;margin-bottom:10px;padding:10px;background:var(--bg-h);border-radius:8px;border:1px dashed var(--gold)">
+        <div style="font-size:11px;color:var(--txt-s);margin-bottom:4px">Новый код (скопируйте и передайте):</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code id="gm-code-new-val" style="flex:1;font-size:18px;font-weight:700;color:var(--gold);letter-spacing:1px"></code>
+          <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="copyGmCode()">Копировать</button>
+        </div>
+      </div>
+      <div id="gm-codes-list" style="max-height:260px;overflow-y:auto"></div>
     </div>
   </div>
 </section>
@@ -505,7 +531,10 @@
         <div class="fg"><label>Уровень</label><input class="inp" type="number" id="nc-level" value="1" min="1" max="20"></div>
         <div class="fg"><label>КТ (минимум)</label><input class="inp" type="number" id="nc-kt-min" value="0" min="0"></div>
         <div class="fg"><label>КТ (максимум)</label><input class="inp" type="number" id="nc-kt-max" value="0" min="0"></div>
-        <div class="fg"><label>ОС</label><input class="inp" type="number" id="nc-os" value="0" min="0"></div>
+        <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="nc-os-1" value="0" min="0"></div>
+        <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="nc-os-2" value="0" min="0"></div>
+        <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="nc-os-3" value="0" min="0"></div>
+        <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="nc-os-4" value="0" min="0"></div>
         <div class="fg fg-full"><label>Описание / предыстория</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
       </div>
     </div>
@@ -543,6 +572,21 @@
   <div class="md" style="max-width:480px">
     <div class="mh"><h2 id="ld-title">Событие</h2><button class="mc-btn" onclick="closeModal('m-log-detail')">✕</button></div>
     <div class="mb" id="ld-body"></div>
+  </div>
+</div>
+
+<!-- Promote to GM modal -->
+<div class="mo" id="m-promote">
+  <div class="md" style="max-width:420px">
+    <div class="mh"><h2>Получить права ГМ</h2><button class="mc-btn" onclick="closeModal('m-promote')">✕</button></div>
+    <div class="mb">
+      <p style="color:var(--txt-s);font-size:13px;margin-bottom:12px">Введите одноразовый код приглашения, выданный действующим ГМом. После активации вы получите права гейммастера.</p>
+      <div class="fg">
+        <label>Код приглашения</label>
+        <input type="text" id="promote-gmcode" class="inp" placeholder="GM-XXXXXX" autocomplete="off" style="font-size:18px;letter-spacing:1px;text-transform:uppercase">
+      </div>
+      <button class="btn btn-p btn-full" style="margin-top:10px" onclick="promoteToGm()">Активировать код</button>
+    </div>
   </div>
 </div>
 
