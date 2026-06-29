@@ -33,13 +33,45 @@ async function apiRequest(endpoint, options = {}, query = {}) {
 
 async function fetchData() {
   try {
-    const data = await apiRequest('/data');
-    DB = data;
-    // Проверяем, не изменился ли статус запросов игрока → уведомляем
+    // Первичная загрузка: только лёгкие секции, необходимые для каркаса.
+    // Тяжёлые (notes, guides с atts) грузятся по требованию при заходе во вкладку.
+    const data = await apiRequest('/data', {}, { sections: 'players,factions,items,transactions' });
+    // Сливаем с уже загруженными секциями, не затирая их
+    DB = { ...(DB || {}), ...data };
     notifyResolvedRequests();
     return data;
   } catch (e) {
     console.error('Failed to fetch data:', e);
+  }
+}
+
+// Ленивая подгрузка одной секции при первом заходе во вкладку.
+// Кешируем загруженные секции, чтобы не тянуть повторно.
+const loadedSections = new Set(['players', 'factions', 'items', 'transactions']);
+async function ensureSection(name) {
+  if (loadedSections.has(name)) return DB[name] || [];
+  try {
+    const data = await apiRequest('/data', {}, { sections: name });
+    if (data[name] !== undefined) {
+      DB[name] = data[name];
+      loadedSections.add(name);
+    }
+    return DB[name] || [];
+  } catch (e) {
+    console.error('Failed to fetch section ' + name + ':', e);
+    return DB[name] || [];
+  }
+}
+// Принудительная перезагрузка секции (после создания/редактирования/удаления)
+async function reloadSection(name) {
+  try {
+    const data = await apiRequest('/data', {}, { sections: name });
+    if (data[name] !== undefined) {
+      DB[name] = data[name];
+      loadedSections.add(name);
+    }
+  } catch (e) {
+    console.error('Failed to reload section ' + name + ':', e);
   }
 }
 
@@ -284,12 +316,22 @@ document.querySelectorAll('.nav-a').forEach(a=>{
   });
 });
 async function renderTab(t){
-  if(t==='items'){renderItems();populatePlayerSelects()}
-  if(t==='notes'){renderNotes()}
-  if(t==='gm'){renderGm()}
-  if(t==='logs'){renderLogs()}
-  if(t==='guide'){renderGuide()}
-  if(t==='players'){renderPlayers()}
+  // Ленивая подгрузка тяжёлых секций при заходе во вкладку
+  const containerId = {notes:'notes-list',guide:'guide-list',logs:'log-feed',items:'items-grid',players:'players-grid'}[t];
+  // Показываем спиннер, пока догружаем секцию
+  const needLoad = (t==='notes'||t==='guide'||t==='logs') && !loadedSections.has(t==='guide'?'guides':t);
+  if(needLoad && containerId){
+    const el=document.getElementById(containerId);
+    if(el)el.innerHTML='<div class="emp"><div class="emp-ic spin">⏳</div><h3>Загрузка…</h3></div>';
+  }
+  if(t==='notes'){await ensureSection('notes');renderNotes()}
+  else if(t==='guide'){await ensureSection('guides');renderGuide()}
+  else if(t==='logs'){await ensureSection('logs');renderLogs()}
+  else if(t==='players'){renderPlayers()}
+  else if(t==='gm'){renderGm()}
+  else if(t==='items'){renderItems();populatePlayerSelects()}
+  // Обновляем статус активной вкладки для тулбара (мобильный)
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
 }
 
 /* ══════════════
@@ -589,7 +631,7 @@ function buildTagsFilter(filterId,renderFn,existingTags=[]){
 ══════════════ */
 function initNotes(){
   buildTagsSelect('nn-tags-sel');
-  buildTagsFilter('note-tags-filter',renderNotes,DB.notes.flatMap(n=>n.tags||[]));
+  buildTagsFilter('note-tags-filter',renderNotes,(DB.notes||[]).flatMap(n=>n.tags||[]));
   initToolbar('nn-etb','nn-editor');
 }
 function renderNotes(){
@@ -655,28 +697,28 @@ async function saveNote(){
 ══════════════ */
 function initGuide(){
   buildTagsSelect('ng-tags-sel');
-  buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
+  buildTagsFilter('guide-tags-filter',renderGuide,(DB.guides||[]).flatMap(g=>g.tags||[]));
   initToolbar('ng-etb','ng-editor');
 }
 
 // Уровень руководства в иерархии (1 = верхний, 2 = подруководство, 3 = под-подруководство)
 function guideLevel(id){
-  let level=1,cur=DB.guides.find(g=>g.id===id),guard=0;
+  let level=1,cur=(DB.guides||[]).find(g=>g.id===id),guard=0;
   while(cur&&cur.parentId&&guard++<10){
     level++;
-    cur=DB.guides.find(g=>g.id===cur.parentId);
+    cur=(DB.guides||[]).find(g=>g.id===cur.parentId);
   }
   return level;
 }
 // Дочерние руководства
 function guideChildren(parentId){
-  return DB.guides.filter(g=>g.parentId===parentId);
+  return (DB.guides||[]).filter(g=>g.parentId===parentId);
 }
 // Цепочка родителей от корня до текущего (включительно)
 function guideBreadcrumbs(id){
   const chain=[];
-  let cur=DB.guides.find(g=>g.id===id),guard=0;
-  while(cur&&guard++<10){chain.unshift(cur);cur=DB.guides.find(g=>g.id===cur.parentId)}
+  let cur=(DB.guides||[]).find(g=>g.id===id),guard=0;
+  while(cur&&guard++<10){chain.unshift(cur);cur=(DB.guides||[]).find(g=>g.id===cur.parentId)}
   return chain;
 }
 
@@ -710,7 +752,6 @@ function openNewSubGuide(){
 function renderGuide(){
   const q=(document.getElementById('guide-q')?.value||'').toLowerCase();
   const activeTag=document.querySelector('#guide-tags-filter .tc.on')?.dataset.tag||'Все';
-  // Счётчик активных фильтров для мобильной кнопки
   const cnt=(q?1:0)+(activeTag!=='Все'?1:0);
   updateFilterCount('guide-nsf',cnt);
   const matchSearch=n=>{
@@ -718,41 +759,27 @@ function renderGuide(){
     const mt=activeTag==='Все'||n.tags.includes(activeTag);
     return mq&&mt;
   };
-  // Верхний уровень — без parentId
-  const roots=DB.guides.filter(n=>!n.parentId&&matchSearch(n));
+  // Список показывает только корневые руководства.
+  // Подруководства встроены внутрь родителя (см. openThread → renderSubguides).
+  let roots=DB.guides.filter(n=>!n.parentId&&matchSearch(n));
   const el=document.getElementById('guide-list');
   if(!DB.guides.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
-  // Если фильтры активны и нет корней — покажем все совпадения плоско
-  if(!roots.length&&(q||activeTag!=='Все')){
+  // При активном поиске — ищем и в подруководствах, показываем совпадения плоско
+  if((q||activeTag!=='Все')&&!roots.length){
     const flat=DB.guides.filter(matchSearch);
     if(!flat.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Ничего не найдено</h3></div>';return}
-    el.innerHTML=flat.map(n=>renderGuideCard(n,0)).join('');
+    el.innerHTML=flat.map(renderGuideCard).join('');
     return;
   }
   if(!roots.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
-  el.innerHTML=roots.map(n=>renderGuideTree(n,0)).join('');
+  el.innerHTML=roots.map(renderGuideCard).join('');
 }
-// Рекурсивный рендер дерева с подруководствами
-function renderGuideTree(node,depth){
-  const kids=guideChildren(node.id);
-  const hasKids=kids.length>0;
-  return `
-    <div class="post post-tree" style="margin-left:${depth*20}px">
-      ${renderGuideCard(node,depth)}
-      ${hasKids?`<div class="sub-tree" id="subtree-${node.id}">
-        ${kids.map(k=>renderGuideTree(k,depth+1)).join('')}
-      </div>`:''}
-    </div>`;
-}
-function renderGuideCard(n,depth){
+function renderGuideCard(n){
   const kids=guideChildren(n.id);
-  const lvl=depth+1;
-  const lvlBadge=depth>0?`<span class="lvl-badge lvl-${lvl}">L${lvl}</span>`:'';
   const kidsInfo=kids.length?`<span class="kids-count">▸ ${kids.length} подр.</span>`:'';
   return `
     <div class="post-card" onclick="openThread(${n.id},'guide')">
       <div class="post-hd">
-        ${lvlBadge}
         <div class="post-ti">${n.title}</div>
         ${kidsInfo}
       </div>
@@ -760,6 +787,32 @@ function renderGuideCard(n,depth){
       <div class="post-ft">
         ${n.tags.map(t=>`<span class="ntag">${t}</span>`).join('')}
         <span class="post-meta">${n.author} · ${n.date}</span>
+      </div>
+    </div>`;
+}
+// Рендер встроенной секции подруководств внутри открытого руководства
+function renderSubguides(parentId){
+  const kids=guideChildren(parentId);
+  if(!kids.length)return '';
+  const lvl=guideLevel(parentId)+1;
+  return `
+    <div class="subguide-section">
+      <div class="subguide-header">
+        <h4>Подруководства</h4>
+        <span class="subguide-lvl">Уровень ${lvl} из 3</span>
+      </div>
+      <div class="subguide-list">
+        ${kids.map(k=>`
+          <div class="subguide-item" onclick="event.stopPropagation();openThread(${k.id},'guide')">
+            <div class="subguide-arrow">↳</div>
+            <div class="subguide-body">
+              <div class="subguide-title">${k.title}</div>
+              <div class="subguide-ex">${renderPreview(k.content,120)}</div>
+              <div class="subguide-meta">${k.author} · ${k.date}${guideChildren(k.id).length?` · <span class="subguide-kids">▸ ${guideChildren(k.id).length} подр.</span>`:''}</div>
+            </div>
+            <div class="subguide-open">›</div>
+          </div>
+        `).join('')}
       </div>
     </div>`;
 }
@@ -782,11 +835,20 @@ async function saveGuide(){
   });
   DB.guides.unshift(newGuide);
   noteAtts.ng=[];
-  toast(ngParentId?`Подруководство «${title}» сохранено`:`Запись «${title}» сохранена`,'ok');
+  toast(ngParentId?`Подруководство «${title}» сохранено`:`Запись «${title}» сохранено`,'ok');
   closeModal('m-new-guide');
-  // Обновляем фильтр тегов
+  // Обновляем фильтр тегов и список
   buildTagsFilter('guide-tags-filter',renderGuide,DB.guides.flatMap(g=>g.tags||[]));
   renderGuide();
+  // Если родитель открыт в thread view — перерисуем секцию подруководств
+  if(ngParentId&&threadPostId===ngParentId&&threadType==='guide'){
+    const subHtml=renderSubguides(ngParentId);
+    // Обновим только секцию подруководств, не перезагружая весь thread
+    const attsEl=document.getElementById('thread-atts');
+    const existing=attsEl?.querySelector('.subguide-section');
+    if(existing){existing.outerHTML=subHtml}
+    else if(subHtml&&attsEl){attsEl.insertAdjacentHTML('afterbegin',subHtml)}
+  }
   document.getElementById('ng-title').value='';
   document.getElementById('ng-editor').innerHTML='';
   document.getElementById('ng-att-list').innerHTML='';
@@ -797,7 +859,6 @@ async function saveGuide(){
   if(titleEl)titleEl.textContent='Новая запись в Руководстве';
   const hint=document.getElementById('ng-parent-hint');
   if(hint)hint.style.display='none';
-  renderGuide();
 }
 
 /* ══════════════
@@ -820,8 +881,9 @@ function renderContent(html){
 }
 /* Превью для карточки статьи в списке: показывает первые картинки (миниатюрой)
    и обрезанный текст без HTML-тегов и без URL-ов картинок. */
-function renderPreview(html){
+function renderPreview(html,maxLen){
   if(!html)return '';
+  const len=maxLen||180;
   // Превращаем URL картинок в <img> (как в renderContent)
   let withImgs=renderContent(html);
   // Оставляем только <img> и текст, остальные теги вырезаем
@@ -832,8 +894,8 @@ function renderPreview(html){
     .replace(/https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif)/gi,' ')
     .replace(/\s+/g,' ')
     .trim()
-    .slice(0,180);
-  const textHtml=text?(text+(html.length>180?'…':'')):'';
+    .slice(0,len);
+  const textHtml=text?(text+(html.length>len?'…':'')):'';
   if(!imgs.length)return textHtml;
   return `<div class="prev-thumbs">${imgs.map(i=>i.replace('class="post-img"','class="prev-thumb"')).join('')}</div>${textHtml?`<div class="prev-text">${textHtml}</div>`:''}`;
 }
@@ -855,11 +917,21 @@ function openThread(id,type){
   }
   document.getElementById('thread-badges').innerHTML=badgesHtml;
   document.getElementById('thread-content').innerHTML=renderContent(post.content);
-  const atts=post.atts||[];
-  document.getElementById('thread-atts').innerHTML=atts.length?atts.map(a=>`
+  // Встроенная секция подруководств (только для гайдов)
+  const subHtml=type==='guide'?renderSubguides(id):'';
+  // Изображения-вложения показываем как картинки, остальные — как чипы для скачивания
+  const imgAtts=atts.filter(a=>a.type&&a.type.startsWith('image/'));
+  const fileAtts=atts.filter(a=>!a.type||!a.type.startsWith('image/'));
+  const imgsHtml=imgAtts.length?`<div class="att-imgs">${imgAtts.map((a,i)=>`
+    <figure class="att-fig" onclick="previewAtt('${a.name}','${a.data}','${a.type}')">
+      <img src="${a.data}" alt="${a.name||''}" loading="lazy">
+      <figcaption>${a.name||''}</figcaption>
+    </figure>`).join('')}</div>`:'';
+  const filesHtml=fileAtts.length?fileAtts.map(a=>`
     <div class="att-chip" onclick="previewAtt('${a.name}','${a.data}','${a.type}')">
-      <span>${a.type.startsWith('image/')?'🖼':'📎'}</span>${a.name}
+      <span>📎</span>${a.name}
     </div>`).join(''):'';
+  document.getElementById('thread-atts').innerHTML=subHtml+imgsHtml+filesHtml;
   renderComments(post);
   // Права на редактирование/удаление: ГМ или автор
   const isGm=currentUser?.role==='gm';
@@ -1080,9 +1152,25 @@ async function addComment(){
   inp.value='';
 }
 function previewAtt(name,data,type){
-  if(type.startsWith('image/')){
-    const w=window.open();
-    w.document.write(`<img src="${data}" style="max-width:100%;background:#111">`);
+  if(type&&type.startsWith('image/')){
+    // Открываем модалку с полноразмерным изображением
+    let m=document.getElementById('m-img-view');
+    if(!m){
+      m=document.createElement('div');
+      m.id='m-img-view';
+      m.className='mo';
+      m.style.zIndex=600;
+      m.innerHTML=`<div class="md" style="max-width:90vw;max-height:90vh;background:transparent;border:none;box-shadow:none">
+        <button class="mc-btn" style="position:absolute;top:-40px;right:0;color:#fff;font-size:24px" onclick="closeModal('m-img-view')">✕</button>
+        <img id="img-view-el" style="display:block;max-width:90vw;max-height:85vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6)">
+        <div id="img-view-cap" style="text-align:center;color:#ccc;font-size:12px;margin-top:8px"></div>
+      </div>`;
+      document.body.appendChild(m);
+      m.addEventListener('click',e=>{if(e.target===m)closeModal('m-img-view')});
+    }
+    document.getElementById('img-view-el').src=data;
+    document.getElementById('img-view-cap').textContent=name||'';
+    openModal('m-img-view');
   } else {
     const a=document.createElement('a');a.href=data;a.download=name;a.click();
   }
