@@ -486,6 +486,28 @@
   </div>
 </div>
 
+<!-- Player detail / characters management -->
+<div class="mo" id="m-player-detail">
+  <div class="md" style="max-width:680px">
+    <div class="mh">
+      <h2 id="pd-name">Игрок</h2>
+      <button class="mc-btn" onclick="closeModal('m-player-detail')">✕</button>
+    </div>
+    <div class="mb">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 14px;background:var(--bg-e);border-radius:var(--r);margin-bottom:14px;font-size:13px">
+        <div><span style="color:var(--txt-m)">Discord:</span> <strong id="pd-discord">—</strong></div>
+        <div><span style="color:var(--txt-m)">Поинты:</span> <strong id="pd-points" style="color:var(--gold)">0 pts</strong></div>
+        <div><span style="color:var(--txt-m)">Слоты:</span> <strong id="pd-slots">1</strong></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h3 style="font-family:var(--fd);font-size:14px;color:var(--txt-s);letter-spacing:.06em">ПЕРСОНАЖИ</h3>
+        <button class="btn btn-p" id="pd-add-char" style="padding:5px 12px;font-size:12px" onclick="closeModal('m-player-detail');openModal('m-new-char')">+ Создать</button>
+      </div>
+      <div id="pd-chars" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Log detail modal -->
 <div class="mo" id="m-log-detail">
   <div class="md" style="max-width:480px">

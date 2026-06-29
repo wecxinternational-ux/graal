@@ -1119,7 +1119,7 @@ function renderPlayers(){
     return;
   }
   g.innerHTML=list.map(p=>`
-    <div class="card ic">
+    <div class="card ic" style="cursor:pointer" onclick="openPlayerDetail(${p.id})">
       <div class="ic-ph">👤</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
@@ -1137,9 +1137,138 @@ function renderPlayers(){
               </div>
             `).join('')}
           </div>
-        ` : ''}
+        ` : '<div style="margin-top:10px;font-size:12px;color:var(--txt-m);font-style:italic">Нет персонажей</div>'}
       </div>
     </div>`).join('');
+}
+
+/* ── Player detail / character management ── */
+let currentPlayerId=null;
+
+function openPlayerDetail(pid){
+  const p=DB.players.find(x=>x.id===pid);
+  if(!p){toast('Игрок не найден','er');return}
+  currentPlayerId=pid;
+  const isGm=currentUser?.role==='gm';
+  const canManage=isGm||p.userId===currentUser?.id||p.name===currentUser?.username;
+
+  document.getElementById('pd-name').textContent=p.name;
+  document.getElementById('pd-discord').textContent=p.discord||'—';
+  document.getElementById('pd-points').textContent=`${p.points||0} pts`;
+  document.getElementById('pd-slots').textContent=`${p.slots||1} слот(ов)`;
+  document.getElementById('pd-add-char').style.display=canManage?'inline-flex':'none';
+
+  const charsList=document.getElementById('pd-chars');
+  if(!p.chars||!p.chars.length){
+    charsList.innerHTML='<div style="text-align:center;padding:24px;color:var(--txt-m);font-size:13px">У игрока ещё нет персонажей</div>';
+  }else{
+    charsList.innerHTML=p.chars.map((c,i)=>`
+      <div class="char-card" id="char-${i}">
+        <div class="char-head">
+          <div>
+            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Проверен">✓</span>':''}</div>
+            <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+          </div>
+          ${canManage?`
+            <div class="char-actions">
+              <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="toggleEditChar(${i})">✎ Изменить</button>
+              <button class="btn btn-x" style="padding:4px 10px;font-size:12px" onclick="deleteChar(${i})">✕</button>
+            </div>
+          `:''}
+        </div>
+        <div class="char-stats">
+          <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
+          <div><span class="cs-l">ОС</span><span class="cs-v">${c.os||0}</span></div>
+          <div><span class="cs-l">Создан</span><span class="cs-v">${c.createdAt||'—'}</span></div>
+        </div>
+        ${c.rep&&c.rep.length?`
+          <div class="char-rep">
+            <div class="cs-l" style="margin-bottom:6px">Репутация</div>
+            ${c.rep.map(r=>`
+              <div class="rep-chip">
+                <span class="rep-fac">${r.fac}</span>
+                <span class="rep-val ${r.val<0?'neg':''}">${r.val>0?'+':''}${r.val}</span>
+                ${r.note?`<span class="rep-note">${r.note}</span>`:''}
+              </div>
+            `).join('')}
+          </div>
+        `:''}
+        ${c.desc?`<div class="char-desc">${c.desc}</div>`:''}
+        <div class="char-edit" id="char-edit-${i}" style="display:none">
+          <div class="fg2">
+            <div class="fg"><label>Имя</label><input class="inp" id="ce-name-${i}" value="${(c.name||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Класс</label><input class="inp" id="ce-class-${i}" value="${(c.class||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Подкласс</label><input class="inp" id="ce-subclass-${i}" value="${(c.subclass||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Уровень</label><input class="inp" type="number" min="1" max="20" id="ce-level-${i}" value="${c.level||1}"></div>
+            <div class="fg"><label>КТ мин</label><input class="inp" type="number" id="ce-ktmin-${i}" value="${c.kt?c.kt[0]:0}"></div>
+            <div class="fg"><label>КТ макс</label><input class="inp" type="number" id="ce-ktmax-${i}" value="${c.kt?c.kt[1]:0}"></div>
+            <div class="fg"><label>ОС</label><input class="inp" type="number" id="ce-os-${i}" value="${c.os||0}"></div>
+            <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="2">${c.desc||''}</textarea></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-p" onclick="saveChar(${i})">Сохранить</button>
+            <button class="btn btn-g" onclick="toggleEditChar(${i})">Отмена</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  openModal('m-player-detail');
+}
+
+function toggleEditChar(idx){
+  const editEl=document.getElementById(`char-edit-${idx}`);
+  if(!editEl)return;
+  editEl.style.display=editEl.style.display==='none'?'block':'none';
+}
+
+async function saveChar(idx){
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p||!p.chars[idx])return;
+  const c=p.chars[idx];
+  const newName=document.getElementById(`ce-name-${idx}`).value.trim();
+  if(!newName){toast('Имя не может быть пустым','er');return}
+  c.name=newName;
+  c.class=document.getElementById(`ce-class-${idx}`).value.trim();
+  c.subclass=document.getElementById(`ce-subclass-${idx}`).value.trim();
+  c.level=parseInt(document.getElementById(`ce-level-${idx}`).value)||1;
+  const ktMin=parseInt(document.getElementById(`ce-ktmin-${idx}`).value)||0;
+  const ktMax=parseInt(document.getElementById(`ce-ktmax-${idx}`).value)||0;
+  c.kt=[ktMin,ktMax];
+  c.os=parseInt(document.getElementById(`ce-os-${idx}`).value)||0;
+  c.desc=document.getElementById(`ce-desc-${idx}`).value.trim();
+
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify(p)
+    },{id:p.id});
+    toast('Персонаж сохранён','ok');
+    openPlayerDetail(currentPlayerId); // ре-рендер
+    renderPlayers();
+  }catch(e){
+    toast(e.message||'Ошибка сохранения','er');
+  }
+}
+
+async function deleteChar(idx){
+  if(!confirm('Удалить персонажа?'))return;
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p||!p.chars[idx])return;
+  const name=p.chars[idx].name;
+  p.chars.splice(idx,1);
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify(p)
+    },{id:p.id});
+    toast(`Персонаж «${name}» удалён`,'ok');
+    openPlayerDetail(currentPlayerId);
+    renderPlayers();
+  }catch(e){
+    toast(e.message||'Ошибка удаления','er');
+  }
 }
 
 /* ── Create character ── */
