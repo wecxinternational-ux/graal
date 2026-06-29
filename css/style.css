@@ -209,8 +209,8 @@ textarea.inp{resize:vertical;min-height:80px}
 /* ══════════════════════════
    EDITOR
 ══════════════════════════ */
-.etb{display:flex;align-items:center;gap:2px;padding:7px 10px;background:var(--bg-s);border:1px solid var(--bdr);border-radius:var(--r) var(--r) 0 0;flex-wrap:wrap}
-.tb-btn{width:27px;height:27px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--txt-s);cursor:pointer;font-size:11px;transition:all .1s;display:flex;align-items:center;justify-content:center;font-family:var(--ff)}
+.etb{display:flex;align-items:center;gap:3px;padding:7px 10px;background:var(--bg-s);border:1px solid var(--bdr);border-radius:var(--r) var(--r) 0 0;flex-wrap:wrap}
+.tb-btn{min-width:30px;height:27px;padding:0 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--txt-s);cursor:pointer;font-size:11px;transition:all .1s;display:flex;align-items:center;justify-content:center;font-family:var(--ff);white-space:nowrap}
 .tb-btn:hover{background:var(--bg-h);color:var(--txt);border-color:var(--bdr)}
 .tb-sep{width:1px;height:18px;background:var(--bdr);margin:0 3px}
 .tb-sel{background:transparent;border:1px solid var(--bdr);border-radius:4px;color:var(--txt-s);font-size:11px;padding:3px 5px;cursor:pointer;outline:none;font-family:var(--ff)}
