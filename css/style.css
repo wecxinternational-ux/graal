@@ -639,7 +639,7 @@ body.role-player .nav-sec.gm-only{display:none}
   .gmc-lg .inp,
   .gmc-lg .sel{font-size:16px;padding:14px 14px;border-radius:10px}
   /* КТ/ОС/Rep — каждое поле на отдельной строке для удобства ввода */
-  .gmc-lg .ktg{grid-template-columns:1fr;gap:12px}
+  .gmc-lg .ktg{grid-template-columns:1fr 1fr 1fr;gap:6px}
   /* Rep row: фракция и примечание крупные, поле очков — узкое */
   .gmc-lg .rep-row{grid-template-columns:1fr 70px 38px!important;gap:8px!important}
   .gmc-lg .rep-row .inp{font-size:15px;padding:12px 12px}
