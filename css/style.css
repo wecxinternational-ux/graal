@@ -30,7 +30,8 @@
 html{scroll-behavior:smooth;color-scheme:dark}
 body{background:var(--bg);color:var(--txt);font-family:var(--ff);font-size:14px;line-height:1.6;overflow-x:hidden;min-height:100vh;-webkit-font-smoothing:antialiased}
 a{text-decoration:none;color:inherit}
-select option{background:var(--bg-e);color:var(--txt)}
+select option{background:var(--bg-e);color:var(--txt);font-weight:500;padding:8px 10px}
+select option:checked{background:var(--pur-g);color:var(--pur-b)}
 ::selection{background:rgba(124,58,237,.35);color:#fff}
 ::placeholder{color:var(--txt-m);opacity:1}
 
@@ -93,10 +94,13 @@ select option{background:var(--bg-e);color:var(--txt)}
 .inp:hover{border-color:var(--bdr-s)}
 .inp:focus{border-color:var(--pur);box-shadow:0 0 0 2px var(--pur-g)}
 textarea.inp{resize:vertical;min-height:80px}
-.sel{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);padding:8px 12px;font-family:var(--ff);font-size:13px;outline:none;cursor:pointer;transition:border-color .15s,box-shadow .15s}
-.sel:hover{border-color:var(--bdr-s)}
+/* Селекты — в стиле кнопок (.btn-g): та же геометрия, вес шрифта и ховер */
+.sel{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);padding:8px 14px;font-family:var(--ff);font-size:13px;font-weight:600;outline:none;cursor:pointer;transition:all .15s;white-space:nowrap}
+.sel:hover{background:var(--bg-h);border-color:var(--bdr-s)}
+.sel:active{transform:translateY(0) scale(.98)}
 .sel:focus{border-color:var(--pur);box-shadow:0 0 0 2px var(--pur-g)}
-select.sel{appearance:none;-webkit-appearance:none;padding-right:30px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238892A4' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+select.sel{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238892A4' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select.sel:hover,select.sel:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A78BFA' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 /* спиннеры у number-полей убраны — значения вводятся с клавиатуры */
 input[type=number].inp::-webkit-outer-spin-button,
 input[type=number].inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
