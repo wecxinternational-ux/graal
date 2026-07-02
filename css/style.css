@@ -103,6 +103,17 @@ textarea.inp{resize:vertical;min-height:80px}
 .sel:focus{border-color:var(--pur);box-shadow:0 0 0 2px var(--pur-g)}
 select.sel{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238892A4' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
 select.sel:hover,select.sel:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A78BFA' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* Кастомный выпадающий список в теме приложения (Chromium 135+, в остальных — системный) */
+@supports (appearance:base-select){
+  select.sel,select.sel::picker(select){appearance:base-select}
+  select.sel::picker-icon{display:none}
+  select.sel::picker(select){background:var(--bg-e);border:1px solid var(--bdr-s);border-radius:var(--r);padding:5px;margin-top:5px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  select.sel option{padding:7px 11px;border-radius:6px;font-size:13px;font-weight:500;color:var(--txt-s);cursor:pointer;transition:background .1s,color .1s}
+  select.sel option:hover,select.sel option:focus{background:var(--bg-h);color:var(--txt);outline:none}
+  select.sel option:checked{background:var(--pur-g);color:var(--pur-b);font-weight:600}
+  select.sel option::checkmark{display:none}
+  body.light select.sel::picker(select){box-shadow:0 10px 30px rgba(40,30,90,.18)}
+}
 /* спиннеры у number-полей убраны — значения вводятся с клавиатуры */
 input[type=number].inp::-webkit-outer-spin-button,
 input[type=number].inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
