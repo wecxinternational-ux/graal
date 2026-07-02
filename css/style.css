@@ -305,8 +305,9 @@ textarea.inp{resize:vertical;min-height:80px}
 .gmc-lg .sel{font-size:15px;padding:12px 14px;border-radius:10px}
 .gmc-lg .gmc-apply{padding:12px 16px;font-size:15px;margin-top:4px}
 .ir{display:grid;grid-template-columns:1fr 2fr;gap:7px}
-.ktg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px}
-.ktg > div{margin:0;gap:0}
+.ktg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.ktg > div{margin:0;gap:0;min-width:0}
+.ktg .inp,.ktg .sel{width:100%}
 .ktg label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-m);display:block;margin-bottom:5px}
 /* Faction autocomplete */
 .fac-wrap{position:relative}
@@ -640,7 +641,7 @@ body.role-player .nav-sec.gm-only{display:none}
   .gmc-lg .inp,
   .gmc-lg .sel{font-size:16px;padding:14px 14px;border-radius:10px}
   /* КТ/ОС/Rep — каждое поле на отдельной строке для удобства ввода */
-  .gmc-lg .ktg{grid-template-columns:1fr 1fr 1fr;gap:2px}
+  .gmc-lg .ktg{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .gmc-lg .ktg > div{margin:0}
   /* Rep row: фракция и примечание крупные, поле очков — узкое */
   .gmc-lg .rep-row{grid-template-columns:1fr 70px 38px!important;gap:8px!important}
