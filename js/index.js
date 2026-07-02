@@ -2,6 +2,20 @@
    ГРААЛЬ  ·  App
 ═══════════════════════════════════════════════════════════════ */
 
+/* ── Theme (светлая/тёмная) ── */
+if (localStorage.getItem('theme') === 'light') document.body.classList.add('light');
+
+function toggleTheme() {
+  const light = document.body.classList.toggle('light');
+  localStorage.setItem('theme', light ? 'light' : 'dark');
+  updateThemeBtn();
+}
+function updateThemeBtn() {
+  const icon = document.body.classList.contains('light') ? '🌙' : '☀';
+  document.querySelectorAll('.theme-btn').forEach(b => b.textContent = icon);
+}
+updateThemeBtn();
+
 /* ── API helpers ── */
 const API_BASE = '/api';
 let authToken = localStorage.getItem('authToken');

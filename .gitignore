@@ -10,3 +10,4 @@ server/graal.db-shm
 .env
 .env.local
 .vercel
+.claude/

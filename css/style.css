@@ -42,6 +42,8 @@ select option:checked{background:var(--pur-g);color:var(--pur-b)}
 .sb{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:var(--bg-s);border-right:1px solid var(--bdr);display:flex;flex-direction:column;z-index:100;overflow:hidden}
 .sb::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--pur),transparent)}
 .sb-hd{padding:22px 18px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--bdr)}
+.theme-btn{margin-left:auto;width:30px;height:30px;border-radius:8px;border:1px solid var(--bdr);background:transparent;color:var(--txt-s);cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.theme-btn:hover{background:var(--bg-h);color:var(--gold);border-color:var(--bdr-s)}
 .logo-rune{font-size:26px;color:var(--pur);filter:drop-shadow(0 0 8px var(--pur-g));animation:rp 3s ease-in-out infinite;line-height:1}
 @keyframes rp{0%,100%{filter:drop-shadow(0 0 6px var(--pur-g))}50%{filter:drop-shadow(0 0 18px rgba(124,58,237,.5))}}
 .logo-t{display:flex;flex-direction:column}
@@ -96,7 +98,7 @@ select option:checked{background:var(--pur-g);color:var(--pur-b)}
 textarea.inp{resize:vertical;min-height:80px}
 /* Селекты — в стиле кнопок (.btn-g): та же геометрия, вес шрифта и ховер */
 .sel{background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--r);color:var(--txt);padding:8px 14px;font-family:var(--ff);font-size:13px;font-weight:600;outline:none;cursor:pointer;transition:all .15s;white-space:nowrap}
-.sel:hover{background:var(--bg-h);border-color:var(--bdr-s)}
+.sel:hover{background-color:var(--bg-h);border-color:var(--bdr-s)}
 .sel:active{transform:translateY(0) scale(.98)}
 .sel:focus{border-color:var(--pur);box-shadow:0 0 0 2px var(--pur-g)}
 select.sel{appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238892A4' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
@@ -561,7 +563,8 @@ body.role-player .nav-sec.gm-only{display:none}
 
 /* ── Auth Page ── */
 .auth-page{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--bg),var(--bg-s))}
-.auth-container{width:100%;max-width:420px;background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);padding:30px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.auth-container{width:100%;max-width:420px;background:var(--bg-e);border:1px solid var(--bdr);border-radius:var(--rl);padding:30px;box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative}
+.auth-container .theme-btn{position:absolute;top:14px;right:14px}
 .auth-logo{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid var(--bdr)}
 .auth-tabs{display:flex;gap:8px;margin-bottom:24px;background:var(--bg-s);padding:4px;border-radius:var(--r)}
 .auth-tab{flex:1;padding:10px 12px;text-align:center;font-size:13px;font-weight:600;color:var(--txt-s);cursor:pointer;border-radius:6px;transition:all .15s}
@@ -743,3 +746,70 @@ body.role-player .nav-sec.gm-only{display:none}
   .cmt-actions{opacity:1!important}
   .post-actions{opacity:1!important}
 }
+
+/* ═══════════════════════════════════════════════════════════
+   СВЕТЛАЯ ТЕМА  (body.light)
+═══════════════════════════════════════════════════════════════ */
+body.light{
+  color-scheme:light;
+  --bg:      #EFEDF6;
+  --bg-s:    #F7F6FB;
+  --bg-e:    #FFFFFF;
+  --bg-h:    #ECE9F5;
+  --bdr:     rgba(90,50,200,.15);
+  --bdr-s:   rgba(90,50,200,.32);
+  --pur:     #6D28D9;
+  --pur-b:   #5B21B6;
+  --pur-g:   rgba(109,40,217,.12);
+  --gold:    #96731F;
+  --gold-b:  #7C5D18;
+  --red:     #DC2626;
+  --green:   #059669;
+  --blue:    #2563EB;
+  --txt:     #1E2130;
+  --txt-s:   #5C6375;
+  --txt-m:   #9CA2B2;
+}
+/* Частицы на светлом фоне — мягче */
+body.light #cv{opacity:.5}
+/* Выделение текста: тёмный текст вместо белого */
+body.light ::selection{background:rgba(109,40,217,.22);color:#1E2130}
+/* Тени — легче и с фиолетовым оттенком вместо глухого чёрного */
+body.light .ic:hover{box-shadow:0 8px 24px rgba(40,30,90,.14)}
+body.light .pc:hover{box-shadow:0 4px 14px rgba(40,30,90,.10)}
+body.light .post-card:hover{box-shadow:0 4px 16px rgba(40,30,90,.10)}
+body.light .subguide-item:hover{box-shadow:0 4px 14px rgba(40,30,90,.10)}
+body.light .att-fig:hover{box-shadow:0 6px 18px rgba(40,30,90,.12)}
+body.light .inv-item:hover{box-shadow:0 2px 8px rgba(40,30,90,.10)}
+body.light .tst{box-shadow:0 4px 14px rgba(40,30,90,.15)}
+body.light .auth-container{box-shadow:0 20px 60px rgba(40,30,90,.15)}
+body.light .mc-toggle{box-shadow:0 2px 12px rgba(40,30,90,.12)}
+/* Оверлеи модалок — чуть прозрачнее */
+body.light .mo{background:rgba(25,18,50,.45)}
+body.light .thread-view{background:rgba(25,18,50,.5)}
+/* Полосатые строки таблиц и ховер журнала */
+body.light .thread-content tr:nth-child(even) td{background:rgba(0,0,0,.025)}
+body.light .le:hover{background:rgba(0,0,0,.03)}
+body.light .att-fig img{background:#E7E5EF}
+/* Цвета редкости — темнее, чтобы читались на белом */
+body.light .r-common,body.light .rb-sm.r-common{color:#4B5563}
+body.light .r-uncommon,body.light .rb-sm.r-uncommon{color:#047857}
+body.light .r-rare,body.light .rb-sm.r-rare{color:#1D4ED8}
+body.light .r-very_rare,body.light .rb-sm.r-very_rare{color:#7E22CE}
+body.light .r-legendary,body.light .rb-sm.r-legendary{color:#A16207}
+body.light .r-artifact,body.light .rb-sm.r-artifact{color:#B91C1C}
+body.light .r-varies,body.light .rb-sm.r-varies{color:#A21CAF}
+body.light .r-none,body.light .rb-sm.r-none{color:#6B7280}
+body.light .inv-item.r-legendary{border-left-color:#D97706}
+/* Акцентные тексты — темнее для контраста */
+body.light .lt .li-pl{color:#2563EB}
+body.light .lt .li-fac{color:#A21CAF}
+body.light .tx-tag{color:#2563EB;background:rgba(37,99,235,.10)}
+body.light .tx-req{border-left-color:#2563EB}
+body.light .lvl-2{color:#2563EB;background:rgba(37,99,235,.10)}
+body.light .lvl-3{color:#7E22CE;background:rgba(126,34,206,.10)}
+body.light .char-verified,body.light .rep-val{color:#059669}
+body.light .tx-approved,body.light .req-row.req-approved .req-state{color:#059669}
+body.light .ch-v{color:#047857}
+body.light .char-pending-badge{color:#A16207}
+/* Бейдж этапа на картинке предмета остаётся тёмным — читается поверх фото */
