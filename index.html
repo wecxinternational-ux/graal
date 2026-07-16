@@ -446,7 +446,7 @@
           <label>Изображение</label>
           <div style="display:flex;flex-direction:column;gap:8px">
             <input class="inp" id="ni-img" placeholder="https://… или загрузите файл">
-            <div class="fdz" id="ni-fdz" onclick="document.getElementById('ni-file-inp').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event,'ni')">
+            <div class="fdz" id="ni-fdz" onclick="document.getElementById('ni-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ni')">
               <input type="file" id="ni-file-inp" accept="image/*" onchange="handleFiles(event,'ni')">
               <div id="ni-img-preview" style="display:none;margin-bottom:8px"><img id="ni-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
               Перетащите изображение или нажмите для загрузки
@@ -497,7 +497,7 @@
           <div class="re" id="nn-editor" contenteditable="true" data-ph="Начните писать…"></div>
         </div>
         <div class="fg"><label>Прикрепить файлы / изображения</label>
-          <div class="fdz" id="nn-fdz" onclick="document.getElementById('nn-file-inp').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event,'nn')">
+          <div class="fdz" id="nn-fdz" onclick="document.getElementById('nn-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'nn')">
             <input type="file" id="nn-file-inp" multiple accept="image/*,.pdf,.docx,.xlsx,.txt" onchange="handleFiles(event,'nn')">
             Перетащите файлы или нажмите для выбора
           </div>
@@ -566,7 +566,7 @@
         <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
         <div class="fg fg-full">
           <label>Аватар персонажа</label>
-          <div class="fdz" id="nc-fdz" onclick="document.getElementById('nc-file-inp').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event,'nc')">
+          <div class="fdz" id="nc-fdz" onclick="document.getElementById('nc-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'nc')">
             <input type="file" id="nc-file-inp" accept="image/*" onchange="handleFiles(event,'nc')">
             <div id="nc-img-preview" style="display:none;margin-bottom:8px"><img id="nc-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
             Перетащите изображение или нажмите для выбора

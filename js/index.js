@@ -396,7 +396,7 @@ function renderItems(){
   }).join('');
 }
 function resetItemFilters(){
-  document.getElementById('item-q')?.value='';
+  const q=document.getElementById('item-q');if(q)q.value='';
   document.querySelectorAll('#f-rar-group input, #f-stg-group input, #f-att-group input').forEach(el=>el.checked=false);
   renderItems();
 }
