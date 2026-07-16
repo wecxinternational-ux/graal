@@ -28,7 +28,6 @@ const SCHEMA_STATEMENTS = [
     attune TEXT,
     stage INTEGER,
     price INTEGER DEFAULT 0,
-    qty INTEGER DEFAULT 1,
     "desc" TEXT,
     author TEXT,
     img TEXT,
@@ -39,7 +38,6 @@ const SCHEMA_STATEMENTS = [
     title TEXT NOT NULL,
     tags TEXT DEFAULT '[]',
     content TEXT,
-    isPublic INTEGER DEFAULT 0,
     author TEXT,
     date TEXT,
     atts TEXT DEFAULT '[]',
@@ -54,7 +52,8 @@ const SCHEMA_STATEMENTS = [
     date TEXT,
     atts TEXT DEFAULT '[]',
     comments TEXT DEFAULT '[]',
-    parentId INTEGER
+    parentId INTEGER,
+    sortOrder INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,7 +104,7 @@ async function seedData() {
 
   if (itemsCount === 0 && notesCount === 0) {
     await db.execute({
-      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, awardedTo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, "desc", author, awardedTo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         'Пылающий клинок',
         'Оружие (длинный меч)',
@@ -113,7 +112,6 @@ async function seedData() {
         'yes',
         2,
         80,
-        3,
         'Этот длинный меч окутан вечным магическим пламенем. При попадании наносит дополнительно 2к6 урона огнём.',
         'Мастер Эрандил',
         '[]'
@@ -121,12 +119,11 @@ async function seedData() {
     });
 
     await db.execute({
-      sql: `INSERT INTO notes (title, tags, content, isPublic, author, date, atts, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO notes (title, tags, content, author, date, atts, comments) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
         'Хоумрул: Смерть персонажа',
         JSON.stringify(['Хоумрул', 'Правила']),
         '<h2>Правило гибели персонажа</h2><p>На нашем открытом столе персонаж, получивший 3 провала спасброска от смерти, не погибает автоматически — вместо этого он получает <strong>Постоянное увечье</strong> из специальной таблицы.</p>',
-        1,
         'Мастер Эрандил',
         new Date().toISOString().split('T')[0],
         '[]',
@@ -219,6 +216,14 @@ function ensureInit() {
         }
       } catch (e) {
         console.error('guides migration failed (ignored): ' + e.message);
+      }
+      try {
+        const cols = (await db.execute('PRAGMA table_info(guides)')).rows;
+        if (cols.length && !cols.some(c => c.name === 'sortOrder')) {
+          await db.execute('ALTER TABLE guides ADD COLUMN sortOrder INTEGER DEFAULT 0');
+        }
+      } catch (e) {
+        console.error('guides sortOrder migration failed (ignored): ' + e.message);
       }
       try {
         await seedData();

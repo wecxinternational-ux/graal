@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Зоны Нестабильных Разломов — Грааль</title>
+<title>Зона Разломов — Грааль</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -17,7 +17,7 @@
       <div class="logo-rune">⬡</div>
       <div class="logo-t">
         <span class="logo-ti">ГРААЛЬ</span>
-        <span class="logo-su">Зоны Разломов</span>
+        <span class="logo-su">Зона Разломов</span>
       </div>
     </div>
 
@@ -102,7 +102,7 @@
     <div class="logo-rune">⬡</div>
     <div class="logo-t">
       <span class="logo-ti">ГРААЛЬ</span>
-      <span class="logo-su">Зоны Разломов</span>
+      <span class="logo-su">Зона Разломов</span>
     </div>
     <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Переключить тему" aria-label="Переключить тему">☀</button>
   </div>
@@ -137,22 +137,36 @@
   </div>
   <div class="fb">
     <div class="sw-w"><span class="sw-ic">🔍</span><input class="inp" id="item-q" placeholder="Поиск по названию…" oninput="renderItems()"></div>
-    <select class="sel" id="f-rar" onchange="renderItems()">
-      <option value="">Все редкости</option>
-      <option value="common">Обычный</option><option value="uncommon">Необычный</option>
-      <option value="rare">Редкий</option><option value="very_rare">Очень редкий</option>
-      <option value="legendary">Легендарный</option><option value="artifact">Артефакт</option>
-      <option value="none">Без редкости</option><option value="varies">Варьируется</option>
-    </select>
-    <select class="sel" id="f-stg" onchange="renderItems()">
-      <option value="">Все этапы</option>
-      <option value="1">I этап</option><option value="2">II этап</option>
-      <option value="3">III этап</option><option value="4">IV этап</option>
-    </select>
-    <select class="sel" id="f-att" onchange="renderItems()">
-      <option value="">Настройка</option>
-      <option value="yes">Требуется</option><option value="no">Нет</option><option value="other">Особая</option>
-    </select>
+    <div class="multi-filter">
+      <label class="mf-label">Редкость</label>
+      <div class="mf-options" id="f-rar-group">
+        <label class="mf-option"><input type="checkbox" value="common" onchange="renderItems()"> Обычный</label>
+        <label class="mf-option"><input type="checkbox" value="uncommon" onchange="renderItems()"> Необычный</label>
+        <label class="mf-option"><input type="checkbox" value="rare" onchange="renderItems()"> Редкий</label>
+        <label class="mf-option"><input type="checkbox" value="very_rare" onchange="renderItems()"> Очень редкий</label>
+        <label class="mf-option"><input type="checkbox" value="legendary" onchange="renderItems()"> Легендарный</label>
+        <label class="mf-option"><input type="checkbox" value="artifact" onchange="renderItems()"> Артефакт</label>
+        <label class="mf-option"><input type="checkbox" value="none" onchange="renderItems()"> Без редкости</label>
+        <label class="mf-option"><input type="checkbox" value="varies" onchange="renderItems()"> Варьируется</label>
+      </div>
+    </div>
+    <div class="multi-filter">
+      <label class="mf-label">Этап</label>
+      <div class="mf-options" id="f-stg-group">
+        <label class="mf-option"><input type="checkbox" value="1" onchange="renderItems()"> I этап</label>
+        <label class="mf-option"><input type="checkbox" value="2" onchange="renderItems()"> II этап</label>
+        <label class="mf-option"><input type="checkbox" value="3" onchange="renderItems()"> III этап</label>
+        <label class="mf-option"><input type="checkbox" value="4" onchange="renderItems()"> IV этап</label>
+      </div>
+    </div>
+    <div class="multi-filter">
+      <label class="mf-label">Настройка</label>
+      <div class="mf-options" id="f-att-group">
+        <label class="mf-option"><input type="checkbox" value="yes" onchange="renderItems()"> Требуется</label>
+        <label class="mf-option"><input type="checkbox" value="no" onchange="renderItems()"> Нет</label>
+        <label class="mf-option"><input type="checkbox" value="other" onchange="renderItems()"> Особая</label>
+      </div>
+    </div>
     <button class="btn btn-g" onclick="resetItemFilters()">Сбросить</button>
   </div>
   <div class="ig" id="items-grid"></div>
@@ -196,7 +210,7 @@
     </div>
     <div class="gmc gmc-lg">
       <div class="gmc-ic">⬆</div>
-      <h3>КТ / ОС / Репутация</h3><p>Управление прогрессом заверённого персонажа</p>
+      <h3>КТ / ОС / Репутация</h3><p>Управление прогрессом персонажа</p>
       <div class="gf">
         <div class="fg"><label>Игрок</label><select class="sel" id="gm-kt-player" onchange="fillGmChars('gm-kt-player','gm-kt-char')"></select></div>
         <div class="fg"><label>Персонаж</label><select class="sel" id="gm-kt-char"></select></div>
@@ -372,9 +386,11 @@
     <div class="thread-top">
       <h2 id="thread-title"></h2>
       <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-g" id="thread-back-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="goBackGuide()">← Назад</button>
         <div id="thread-badges" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <button class="btn btn-g" id="thread-edit-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="editThread()">✎ Изменить</button>
         <button class="btn btn-p" id="thread-subguide-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="openNewSubGuide()">+ Подруководство</button>
+        <button class="btn btn-gold" id="thread-publish-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="publishNoteToGuide()">📖 Опубликовать в руководствах</button>
         <button class="btn btn-x" id="thread-del-btn" style="padding:5px 12px;font-size:12px;display:none" onclick="deleteThread()">✕ Удалить</button>
         <button class="mc-btn" onclick="closeThread()">✕</button>
       </div>
@@ -402,7 +418,7 @@
     <div class="mh"><h2>Добавить предмет</h2><button class="mc-btn" onclick="closeModal('m-add-item')">✕</button></div>
     <div class="mb">
       <div class="fg2">
-        <div class="fg fg-full"><label>Название</label><input class="inp" id="ni-name" placeholder="Меч Вечного Пламени"></div>
+        <div class="fg fg-full"><label>Название</label><input class="inp" id="ni-name" placeholder="Оружие+1"></div>
         <div class="fg"><label>Редкость</label>
           <select class="sel" id="ni-rar" style="width:100%">
             <option value="common">Обычный</option><option value="uncommon">Необычный</option>
@@ -424,7 +440,6 @@
           </select>
         </div>
         <div class="fg"><label>Цена (ОС)</label><input class="inp" type="number" id="ni-price" placeholder="0" min="0"></div>
-        <div class="fg"><label>Кол-во на сервере</label><input class="inp" type="number" id="ni-qty" placeholder="1" min="0"></div>
         <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ni-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
         <div class="fg"><label>Автор</label><input class="inp" id="ni-author" placeholder="Мастер…"></div>
         <div class="fg"><label>URL изображения</label><input class="inp" id="ni-img" placeholder="https://…"></div>
@@ -447,6 +462,7 @@
       <input class="inp" type="number" id="aw-qty" value="1" min="1" style="width:64px;flex-shrink:0">
       <button class="btn btn-p" style="flex-shrink:0" onclick="awardItem()">Выдать</button>
       <button class="btn btn-x" style="flex-shrink:0" onclick="revokeItem()">Изъять</button>
+      <button class="btn btn-d gm-only" style="flex-shrink:0" onclick="deleteItem()">🗑 Удалить</button>
     </div>
   </div>
 </div>
@@ -477,7 +493,6 @@
           </div>
           <div class="att-list" id="nn-att-list"></div>
         </div>
-        <label class="tog-label"><input type="checkbox" id="nn-public"> Сделать публичной (видна игрокам)</label>
       </div>
     </div>
     <div class="mf">
@@ -538,7 +553,15 @@
         <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="nc-os-2" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="nc-os-3" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="nc-os-4" value="0" min="0"></div>
-        <div class="fg fg-full"><label>Описание / предыстория</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
+        <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
+        <div class="fg fg-full">
+          <label>Аватар персонажа</label>
+          <div class="fdz" id="nc-fdz" onclick="document.getElementById('nc-file-inp').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event,'nc')">
+            <input type="file" id="nc-file-inp" accept="image/*" onchange="handleFiles(event,'nc')">
+            <div id="nc-img-preview" style="display:none;margin-bottom:8px"><img id="nc-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+            Перетащите изображение или нажмите для выбора
+          </div>
+        </div>
       </div>
     </div>
     <div class="mf">
@@ -559,7 +582,8 @@
       <div style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 14px;background:var(--bg-e);border-radius:var(--r);margin-bottom:14px;font-size:13px">
         <div><span style="color:var(--txt-m)">Discord:</span> <strong id="pd-discord">—</strong></div>
         <div><span style="color:var(--txt-m)">Поинты:</span> <strong id="pd-points" style="color:var(--gold)">0 pts</strong></div>
-        <div><span style="color:var(--txt-m)">Слоты:</span> <strong id="pd-slots">1</strong></div>
+        <div><span style="color:var(--txt-m)">Слоты:</span> <strong id="pd-slots">0/1</strong></div>
+        <div><span style="color:var(--txt-m)">Персы:</span> <strong id="pd-char-count">0</strong></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <h3 style="font-family:var(--fd);font-size:14px;color:var(--txt-s);letter-spacing:.06em">ПЕРСОНАЖИ</h3>

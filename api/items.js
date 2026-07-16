@@ -10,13 +10,13 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     if (!await requireGm(req, res)) return;
-    const {name, type, rarity, attune, stage, price, qty, desc, author, img} = req.body;
+    const {name, type, rarity, attune, stage, price, desc, author, img} = req.body;
     const result = await db.execute({
-      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, img, awardedTo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO items (name, type, rarity, attune, stage, price, "desc", author, img, awardedTo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         name, type || 'Чудесный предмет', rarity, attune,
-        stage, price || 0, qty || 1, desc,
+        stage, price || 0, desc,
         author || req.user?.username || 'Мастер Эрандил', img, '[]'
       ]
     });
@@ -26,12 +26,20 @@ module.exports = async (req, res) => {
   if (req.method === 'PUT') {
     if (!await requireGm(req, res)) return;
     const { id } = req.query;
-    const {name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo} = req.body;
+    const {name, type, rarity, attune, stage, price, desc, author, img, awardedTo} = req.body;
     await db.execute({
-      sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, qty=?, "desc"=?, author=?, img=?, awardedTo=?
+      sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, "desc"=?, author=?, img=?, awardedTo=?
             WHERE id=?`,
-      args: [name, type, rarity, attune, stage, price, qty, desc, author, img, JSON.stringify(awardedTo), id]
+      args: [name, type, rarity, attune, stage, price, desc, author, img, JSON.stringify(awardedTo), id]
     });
+    return res.json({ success: true });
+  }
+
+  if (req.method === 'DELETE') {
+    if (!await requireGm(req, res)) return;
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: 'Не указан id' });
+    await db.execute({ sql: 'DELETE FROM items WHERE id=?', args: [id] });
     return res.json({ success: true });
   }
 

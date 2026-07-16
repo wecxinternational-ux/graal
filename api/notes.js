@@ -16,13 +16,14 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     if (!await requireGm(req, res)) return;
-    const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
+    const {title, tags, content, author, date, atts, comments} = req.body;
     const result = await db.execute({
-      sql: `INSERT INTO notes (title, tags, content, isPublic, author, date, atts, comments)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO notes (title, tags, content, author, date, atts, comments)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
       args: [
-        title, JSON.stringify(tags || []), content, isPublic ? 1 : 0,
-        author || req.user?.username || 'Мастер Эрандил', date || new Date().toISOString().split('T')[0],
+        title, JSON.stringify(tags || []), content,
+        author || req.user?.username || 'Мастер Эрандил',
+        date || new Date().toISOString().split('T')[0],
         JSON.stringify(atts || []), JSON.stringify(comments || [])
       ]
     });
@@ -47,12 +48,12 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Нет прав на редактирование' });
       }
     }
-    const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
+    const {title, tags, content, author, date, atts, comments} = req.body;
     await db.execute({
-      sql: `UPDATE notes SET title=?, tags=?, content=?, isPublic=?, author=?, date=?, atts=?, comments=?
+      sql: `UPDATE notes SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
             WHERE id=?`,
       args: [
-        title, JSON.stringify(tags), content, isPublic ? 1 : 0, author, date,
+        title, JSON.stringify(tags), content, author, date,
         JSON.stringify(atts), JSON.stringify(comments), id
       ]
     });

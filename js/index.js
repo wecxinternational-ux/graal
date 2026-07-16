@@ -283,7 +283,7 @@ const RARITY={common:'Обычный',uncommon:'Необычный',rare:'Ред
 const STAGES={1:'I этап',2:'II этап',3:'III этап',4:'IV этап'};
 const ATTUNE={yes:'Требуется',no:'Нет',other:'Особая'};
 const ITEM_EMO={Оружие:'⚔',Доспехи:'🛡',Кольцо:'💍',Зелье:'⚗',Одеяние:'🪄',Артефакт:'✨',Свиток:'📜'};
-const ALL_TAGS=['Перевод','Хоумрул','Правила','Лор','Сессия','Объявление','Карта','НИП'];
+const ALL_TAGS=['Перевод','Правила','Лор','Объявление','Карта','НИП'];
 const FACTIONS_DEFAULT=[
   {name:'Орден Рассветного Щита',color:'#FBBF24'},
   {name:'Культ Разлома',color:'#F87171'},
@@ -362,12 +362,18 @@ async function renderTab(t){
 ══════════════ */
 function renderItems(){
   const q=(document.getElementById('item-q')?.value||'').toLowerCase();
-  const rar=document.getElementById('f-rar')?.value||'';
-  const stg=document.getElementById('f-stg')?.value||'';
-  const att=document.getElementById('f-att')?.value||'';
+  const rarEls=document.querySelectorAll('#f-rar-group input:checked');
+  const rars=[...rarEls].map(el=>el.value);
+  const stgEls=document.querySelectorAll('#f-stg-group input:checked');
+  const stgs=[...stgEls].map(el=>el.value);
+  const attEls=document.querySelectorAll('#f-att-group input:checked');
+  const atts=[...attEls].map(el=>el.value);
   const list=DB.items.filter(it=>{
     const mq=!q||it.name.toLowerCase().includes(q)||it.type.toLowerCase().includes(q);
-    return mq&&(!rar||it.rarity===rar)&&(!stg||String(it.stage)===stg)&&(!att||it.attune===att);
+    const mr=!rars.length||rars.includes(it.rarity);
+    const ms=!stgs.length||stgs.includes(String(it.stage));
+    const ma=!atts.length||atts.includes(it.attune);
+    return mq&&mr&&ms&&ma;
   });
   const g=document.getElementById('items-grid');
   if(!list.length){g.innerHTML='<div class="emp"><div class="emp-ic">🔮</div><h3>Предметы не найдены</h3><p>Измените фильтры или добавьте предмет</p></div>';return}
@@ -390,7 +396,8 @@ function renderItems(){
   }).join('');
 }
 function resetItemFilters(){
-  ['item-q','f-rar','f-stg','f-att'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  document.getElementById('item-q')?.value='';
+  document.querySelectorAll('#f-rar-group input, #f-stg-group input, #f-att-group input').forEach(el=>el.checked=false);
   renderItems();
 }
 
@@ -405,7 +412,6 @@ async function addItem(){
     attune:document.getElementById('ni-att').value,
     stage:parseInt(document.getElementById('ni-stg').value),
     price:parseInt(document.getElementById('ni-price').value)||0,
-    qty:parseInt(document.getElementById('ni-qty').value)||1,
     desc:document.getElementById('ni-desc').value.trim(),
     author:document.getElementById('ni-author').value.trim()||currentUser?.username||'Мастер Эрандил',
     img:document.getElementById('ni-img').value.trim()
@@ -415,10 +421,10 @@ async function addItem(){
     body: JSON.stringify(it)
   });
   DB.items.unshift(newItem);
-  await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> добавлен. Добавил: <span class="li-pl">${it.author}</span>. Кол-во: ${it.qty}.`);
+  await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> добавлен. Добавил: <span class="li-pl">${it.author}</span>.`);
   toast(`«${it.name}» добавлен`,'ok');
   closeModal('m-add-item');
-  ['ni-name','ni-type','ni-price','ni-qty','ni-desc','ni-author','ni-img'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  ['ni-name','ni-type','ni-price','ni-desc','ni-author','ni-img'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
   renderItems();
 }
 
@@ -461,8 +467,6 @@ async function awardItem(){
   const qty=parseInt(document.getElementById('aw-qty').value)||1;
   if(!it||!player||player.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(qty<1){toast('Количество должно быть ≥ 1','er');return}
-  if(it.qty<qty){toast(`В базе только ×${it.qty}, нельзя выдать ×${qty}`,'er');return}
-  it.qty-=qty;
   const exIdx=it.awardedTo.findIndex(a=>a.player===player);
   if(exIdx!==-1)it.awardedTo[exIdx].qty+=qty;
   else it.awardedTo.push({player,qty});
@@ -485,7 +489,6 @@ async function revokeItem(){
   if(ex.qty<qty){toast(`У игрока только ×${ex.qty}, нельзя изъять ×${qty}`,'er');return}
   const actualQty=qty;
   ex.qty-=actualQty;
-  it.qty+=actualQty;
   if(ex.qty<=0)it.awardedTo.splice(exIdx,1);
   await apiRequest('/items', {
     method: 'PUT',
@@ -494,6 +497,19 @@ async function revokeItem(){
   await addLog('revoke','🚫',`Предмет <span class="li-it">«${it.name}»</span> изъят у <span class="li-pl">${player}</span> ×${actualQty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`«${it.name}» изъят у ${player} ×${actualQty}`,'ok');
   closeModal('m-item-detail');renderItems();
+}
+
+async function deleteItem(){
+  const it=DB.items.find(x=>x.id===currentItemId);
+  if(!it)return;
+  if(!confirm(`Удалить предмет «${it.name}»? Это действие нельзя отменить.`))return;
+  try{
+    await apiRequest('/items',{method:'DELETE'},{id:it.id});
+    DB.items=DB.items.filter(x=>x.id!==it.id);
+    await addLog('item','🗑',`Предмет <span class="li-it">«${it.name}»</span> удалён. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+    toast(`«${it.name}» удалён`,'ok');
+    closeModal('m-item-detail');renderItems();
+  }catch(e){toast(e.message||'Ошибка удаления','er')}
 }
 
 function quickRevoke(playerName){
@@ -586,9 +602,19 @@ function handleDrop(e,pfx){
 function readFile(file,pfx){
   const reader=new FileReader();
   reader.onload=ev=>{
-    noteAtts[pfx]=noteAtts[pfx]||[];
-    noteAtts[pfx].push({name:file.name,type:file.type,data:ev.target.result});
-    renderAttList(pfx);
+    if(pfx==='nc'){
+      const preview=document.getElementById('nc-img-preview');
+      const previewImg=document.getElementById('nc-img-preview-img');
+      if(preview&&previewImg){
+        previewImg.src=ev.target.result;
+        preview.style.display='block';
+      }
+      noteAtts[pfx]=[{name:file.name,type:file.type,data:ev.target.result}];
+    }else{
+      noteAtts[pfx]=noteAtts[pfx]||[];
+      noteAtts[pfx].push({name:file.name,type:file.type,data:ev.target.result});
+      renderAttList(pfx);
+    }
   };
   if(file.type.startsWith('image/'))reader.readAsDataURL(file);
   else reader.readAsDataURL(file);
@@ -674,7 +700,7 @@ function renderNotes(){
     <div class="post" onclick="openThread(${n.id},'note')">
       <div class="post-hd">
         <div class="post-ti">${n.title}</div>
-        <div class="post-badges">${n.isPublic?'<span class="pub-badge">Публичная</span>':''}</div>
+        <div class="post-badges"></div>
       </div>
       <div class="post-ex">${renderPreview(n.content)}</div>
       <div class="post-ft">
@@ -688,9 +714,8 @@ async function saveNote(){
   if(!title){toast('Введите заголовок','er');return}
   const tags=getSelectedTags('nn-tags-sel');
   const content=document.getElementById('nn-editor').innerHTML;
-  const isPublic=document.getElementById('nn-public').checked;
   const note={
-    title,tags,content,isPublic,
+    title,tags,content,
     atts:noteAtts.nn||[],
     comments:[],
     author:currentUser?.username||'Мастер Эрандил',
@@ -733,9 +758,11 @@ function guideLevel(id){
   }
   return level;
 }
-// Дочерние руководства
+// Дочерние руководства (сортированы по sortOrder)
 function guideChildren(parentId){
-  return (DB.guides||[]).filter(g=>g.parentId===parentId);
+  return (DB.guides||[])
+    .filter(g=>g.parentId===parentId)
+    .sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
 }
 // Цепочка родителей от корня до текущего (включительно)
 function guideBreadcrumbs(id){
@@ -785,7 +812,7 @@ function renderGuide(){
   };
   // Список показывает только корневые руководства.
   // Подруководства встроены внутрь родителя (см. openThread → renderSubguides).
-  let roots=DB.guides.filter(n=>!n.parentId&&matchSearch(n));
+  let roots=DB.guides.filter(n=>!n.parentId&&matchSearch(n)).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
   const el=document.getElementById('guide-list');
   if(!DB.guides.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
   // При активном поиске — ищем и в подруководствах, показываем совпадения плоско
@@ -825,9 +852,14 @@ function renderSubguides(parentId){
         <h4>Подруководства</h4>
         <span class="subguide-lvl">Уровень ${lvl} из 3</span>
       </div>
-      <div class="subguide-list">
+      <div class="subguide-list" ondragover="event.preventDefault()" ondrop="dropGuide(event,${parentId})">
         ${kids.map(k=>`
-          <div class="subguide-item" onclick="event.stopPropagation();openThread(${k.id},'guide')">
+          <div class="subguide-item" draggable="true" ondragstart="dragGuide(event,${k.id})" onclick="event.stopPropagation();openThread(${k.id},'guide')">
+            <div class="subguide-drag">⋮⋮</div>
+            <div class="subguide-move">
+              <button class="btn btn-xs" onclick="event.stopPropagation();moveGuideUp(${k.id},${parentId})">↑</button>
+              <button class="btn btn-xs" onclick="event.stopPropagation();moveGuideDown(${k.id},${parentId})">↓</button>
+            </div>
             <div class="subguide-arrow">↳</div>
             <div class="subguide-body">
               <div class="subguide-title">${k.title}</div>
@@ -840,18 +872,76 @@ function renderSubguides(parentId){
       </div>
     </div>`;
 }
+
+let draggedGuideId=null;
+function dragGuide(e,id){
+  draggedGuideId=id;
+  e.dataTransfer.effectAllowed='move';
+}
+async function dropGuide(e,parentId){
+  e.preventDefault();
+  if(!draggedGuideId)return;
+  const items=Array.from(document.querySelectorAll('.subguide-list .subguide-item'));
+  const guide=DB.guides.find(g=>g.id===draggedGuideId);
+  if(!guide)return;
+  const kids=guideChildren(parentId);
+  const targetItem=e.target.closest('.subguide-item');
+  const dropIndex=targetItem?items.indexOf(targetItem):kids.length;
+  const oldIndex=kids.findIndex(k=>k.id===draggedGuideId);
+  if(oldIndex===dropIndex)return;
+  kids.splice(oldIndex,1);
+  kids.splice(dropIndex,0,guide);
+  for(let i=0;i<kids.length;i++){
+    kids[i].sortOrder=i;
+    await apiRequest('/guides',{method:'PUT',body:JSON.stringify(kids[i])},{id:kids[i].id});
+  }
+  toast('Порядок подруководств обновлён','ok');
+  renderThread();
+  draggedGuideId=null;
+}
+async function moveGuideUp(id,parentId){
+  const kids=guideChildren(parentId);
+  const idx=kids.findIndex(k=>k.id===id);
+  if(idx<=0)return;
+  const temp=kids[idx];
+  kids[idx]=kids[idx-1];
+  kids[idx-1]=temp;
+  for(let i=0;i<kids.length;i++){
+    kids[i].sortOrder=i;
+    await apiRequest('/guides',{method:'PUT',body:JSON.stringify(kids[i])},{id:kids[i].id});
+  }
+  renderThread();
+}
+async function moveGuideDown(id,parentId){
+  const kids=guideChildren(parentId);
+  const idx=kids.findIndex(k=>k.id===id);
+  if(idx>=kids.length-1)return;
+  const temp=kids[idx];
+  kids[idx]=kids[idx+1];
+  kids[idx+1]=temp;
+  for(let i=0;i<kids.length;i++){
+    kids[i].sortOrder=i;
+    await apiRequest('/guides',{method:'PUT',body:JSON.stringify(kids[i])},{id:kids[i].id});
+  }
+  renderThread();
+}
+
 async function saveGuide(){
   const title=document.getElementById('ng-title').value.trim();
   if(!title){toast('Введите заголовок','er');return}
   const tags=getSelectedTags('ng-tags-sel');
   const content=document.getElementById('ng-editor').innerHTML;
+  const maxOrder=ngParentId
+    ? Math.max(...(DB.guides||[]).filter(g=>g.parentId===ngParentId).map(g=>g.sortOrder||0),-1)
+    : Math.max(...(DB.guides||[]).filter(g=>!g.parentId).map(g=>g.sortOrder||0),-1);
   const g={
     title,tags,content,
     atts:noteAtts.ng||[],
     comments:[],
     author:currentUser?.username||'Мастер Эрандил',
     date:new Date().toISOString().split('T')[0],
-    parentId:ngParentId
+    parentId:ngParentId,
+    sortOrder:maxOrder+1
   };
   const newGuide = await apiRequest('/guides', {
     method: 'POST',
@@ -929,8 +1019,7 @@ function openThread(id,type){
   threadPostId=id;threadType=type;
   document.getElementById('thread-title').textContent=post.title;
   // Хлебные крошки для подруководств (гайды)
-  let badgesHtml=post.tags.map(t=>`<span class="ntag">${t}</span>`).join('')+
-    (post.isPublic?'<span class="pub-badge">Публичная</span>':'');
+  let badgesHtml=post.tags.map(t=>`<span class="ntag">${t}</span>`).join('');
   if(type==='guide'){
     const crumbs=guideBreadcrumbs(id);
     if(crumbs.length>1){
@@ -969,7 +1058,56 @@ function openThread(id,type){
     const showSub=type==='guide'&&isGm&&guideLevel(id)<3;
     subBtn.style.display=showSub?'inline-flex':'none';
   }
+  // Кнопка "Опубликовать в руководствах": только для заметок, только ГМ или автор
+  const pubBtn=document.getElementById('thread-publish-btn');
+  if(pubBtn){
+    const showPub=type==='note'&&(isGm||isAuthor);
+    pubBtn.style.display=showPub?'inline-flex':'none';
+  }
+  // Кнопка "Назад": только для подруководств (которые имеют parentId)
+  const backBtn=document.getElementById('thread-back-btn');
+  if(backBtn){
+    const showBack=type==='guide'&&post.parentId;
+    backBtn.style.display=showBack?'inline-flex':'none';
+  }
   document.getElementById('thread-view').classList.add('on');
+}
+
+function goBackGuide(){
+  const guide=DB.guides.find(g=>g.id===threadPostId);
+  if(!guide||!guide.parentId)return;
+  openThread(guide.parentId,'guide');
+}
+
+async function publishNoteToGuide(){
+  const note=DB.notes.find(n=>n.id===threadPostId);
+  if(!note)return;
+  const existing=DB.guides.find(g=>g.title===note.title&&!g.parentId);
+  if(existing){
+    toast(`Руководство с названием «${note.title}» уже существует`,'er');
+    return;
+  }
+  if(!confirm(`Опубликовать заметку «${note.title}» в руководствах?`))return;
+  try{
+    const maxOrder=Math.max(...(DB.guides||[]).filter(g=>!g.parentId).map(g=>g.sortOrder||0),-1);
+    const guide={
+      title:note.title,
+      tags:note.tags||[],
+      content:note.content,
+      atts:note.atts||[],
+      comments:[],
+      author:note.author,
+      date:note.date,
+      parentId:null,
+      sortOrder:maxOrder+1
+    };
+    const newGuide=await apiRequest('/guides',{method:'POST',body:JSON.stringify(guide)});
+    DB.guides.unshift(newGuide);
+    await addLog('guide','📖',`Заметка <span class="li-it">«${note.title}»</span> опубликована в руководствах. Автор: <span class="li-pl">${note.author}</span>.`);
+    toast(`«${note.title}» опубликовано в руководствах`,'ok');
+    closeThread();
+    renderTab('guide');
+  }catch(e){toast(e.message||'Ошибка публикации','er')}
 }
 
 /* Редактирование существующего поста */
@@ -985,7 +1123,7 @@ function editThread(){
     // Заполняем модалку новой заметки данными поста
     document.getElementById('nn-title').value=post.title;
     document.getElementById('nn-editor').innerHTML=post.content;
-    document.getElementById('nn-public').checked=!!post.isPublic;
+    
     // Теги: стандартные + кастомные из поста
     const customTags=(post.tags||[]).filter(t=>!ALL_TAGS.includes(t));
     buildTagsSelect('nn-tags-sel',customTags);
@@ -1029,7 +1167,6 @@ async function saveNoteEdit(){
   post.title=title;
   post.tags=getSelectedTags('nn-tags-sel');
   post.content=document.getElementById('nn-editor').innerHTML;
-  post.isPublic=document.getElementById('nn-public').checked;
   post.atts=noteAtts.nn||[];
   post.editedAt=new Date().toISOString().split('T')[0];
   try{
@@ -1322,13 +1459,26 @@ async function gmCertify(status){
   if(!cname||cname.startsWith('Выбрать')){toast('Выберите персонажа','er');return}
   const p=DB.players.find(x=>x.name===pname);
   const ch=p?.chars.find(c=>c.name===cname);
-  if(ch)ch.verified=status;
+  if(!ch)return;
+  
+  if(status){
+    const usedSlots=p.chars?.filter(c=>c.verified).length||0;
+    const totalSlots=p.slots||1;
+    if(usedSlots>=totalSlots){
+      toast(`Нет свободных слотов (${usedSlots}/${totalSlots}). Деактивируйте другого персонажа.`,'er');
+      return;
+    }
+    ch.verified=true;
+  }else{
+    ch.verified=false;
+  }
+  
   await apiRequest('/players', {
     method: 'PUT',
     body: JSON.stringify(p)
   }, { id: p.id });
   await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
-  toast(`${cname} ${status?'заверен':'разаверен'}`,'ok');
+  toast(`${cname} ${status?'заверен':'разаверен'}. ${!status?'Слот освобожден':''}`,'ok');
 }
 function renderTx(){
   const list=document.getElementById('tx-list');
@@ -1519,11 +1669,14 @@ function addRepRow(fac='', val='', note=''){
   const row=document.createElement('div');
   row.className='rep-row';
   row.style.cssText='display:grid;grid-template-columns:1fr 80px 38px;gap:8px;align-items:start;position:relative';
+  const facOptions=(DB.factions||[]).map(f=>`<option value="${f.name}" style="color:${f.color}" ${f.name===fac?'selected':''}>${f.name}</option>`).join('');
   row.innerHTML=`
     <div class="fac-wrap" style="position:relative">
-      <input class="inp rep-fac" placeholder="Фракция…" value="${fac.replace(/"/g,'&quot;')}" autocomplete="off"
-             oninput="facInputFor(this)" onfocus="facInputFor(this)" onblur="setTimeout(()=>hideFacFor(this),180)">
-      <div class="fac-drop rep-drop"></div>
+      <select class="inp rep-fac" style="width:100%;padding-right:28px;appearance:none;cursor:pointer">
+        <option value="">Фракция…</option>
+        ${facOptions}
+      </select>
+      <div class="sel-arrow">▼</div>
     </div>
     <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100" style="text-align:center">
     <button class="btn btn-x" style="padding:8px 0;font-size:13px;line-height:1.4" title="Удалить" onclick="this.parentElement.remove()">✕</button>
@@ -1801,14 +1954,18 @@ function renderPlayers(){
         <div class="ic-ty">${p.discord||'—'}</div>
         <div class="ic-ft">
           <span class="ip">${p.points||0} pts</span>
-          <span class="iq">${p.chars?.length||0} персонажей</span>
+          <span class="iq">Слоты: ${p.chars?.filter(c=>c.verified).length||0}/${p.slots||1}</span>
+          <span style="font-size:11px;color:var(--txt-m)">${p.chars?.length||0} перс</span>
         </div>
         ${p.chars?.length ? `
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
             ${p.chars.map(c=>`
-              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65}">
-                <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
-                <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
+                ${c.img?`<img src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
+                <div>
+                  <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                  <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+                </div>
               </div>
             `).join('')}
           </div>
@@ -1831,7 +1988,11 @@ function openPlayerDetail(pid){
   document.getElementById('pd-name').textContent=p.name;
   document.getElementById('pd-discord').textContent=p.discord||'—';
   document.getElementById('pd-points').textContent=`${p.points||0} pts`;
-  document.getElementById('pd-slots').textContent=`${p.slots||1} слот(ов)`;
+  const charCount=p.chars?.length||0;
+  const usedSlots=p.chars?.filter(c=>c.verified).length||0;
+  const totalSlots=p.slots||1;
+  document.getElementById('pd-slots').textContent=`${usedSlots}/${totalSlots}`;
+  document.getElementById('pd-char-count').textContent=charCount;
   document.getElementById('pd-add-char').style.display=canManage?'inline-flex':'none';
 
   const charsList=document.getElementById('pd-chars');
@@ -1849,9 +2010,12 @@ function openPlayerDetail(pid){
     charsList.innerHTML=p.chars.map((c,i)=>`
       <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
         <div class="char-head" style="cursor:pointer" onclick="toggleCharDetails(${i})">
-          <div>
-            <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
-            <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            ${c.img?`<img src="${c.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0">`:''}
+            <div>
+              <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
+              <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+            </div>
           </div>
           ${canManage?`
             <div class="char-actions">
@@ -2062,6 +2226,7 @@ async function createCharacter(){
     parseInt(document.getElementById('nc-os-4').value)||0
   ];
   const desc=document.getElementById('nc-desc').value.trim();
+  const img=(noteAtts.nc||[])[0]?.data||null;
 
   if(!name){
     toast('Введите имя персонажа','er');
@@ -2078,12 +2243,18 @@ async function createCharacter(){
     toast('Персонаж с таким именем уже существует','er');
     return;
   }
+  const usedSlots=me.chars?.filter(c=>c.verified).length||0;
+  const totalSlots=me.slots||1;
+  if(usedSlots>=totalSlots){
+    toast(`Нет свободных слотов (${usedSlots}/${totalSlots}). Подождите, пока ГМ деактивирует одного из персонажей.`,'er');
+    return;
+  }
 
   const newChar={
     name, class:cls, subclass,
     level, kt:[ktMin,ktMax], os,
     verified:false, rep:[],
-    desc, createdAt:new Date().toISOString().split('T')[0]
+    desc, img, createdAt:new Date().toISOString().split('T')[0]
   };
 
   me.chars=me.chars||[];
@@ -2127,6 +2298,9 @@ async function createCharacter(){
     document.getElementById('nc-os-2').value='0';
     document.getElementById('nc-os-3').value='0';
     document.getElementById('nc-os-4').value='0';
+    document.getElementById('nc-file-inp').value='';
+    document.getElementById('nc-img-preview').style.display='none';
+    noteAtts.nc=[];
   }catch(e){
     toast(e.message||'Ошибка создания персонажа','er');
   }

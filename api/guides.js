@@ -15,19 +15,19 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     if (!await requireGm(req, res)) return;
-    const {title, tags, content, author, date, atts, comments, parentId} = req.body;
+    const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
     const result = await db.execute({
-      sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId, sortOrder)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         title, JSON.stringify(tags || []), content,
         author || req.user?.username || 'Мастер Эрандил',
         date || new Date().toISOString().split('T')[0],
         JSON.stringify(atts || []), JSON.stringify(comments || []),
-        parentId ?? null
+        parentId ?? null, sortOrder ?? 0
       ]
     });
-    return res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null });
+    return res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null, sortOrder: sortOrder ?? 0 });
   }
 
   if (req.method === 'PUT') {
@@ -47,13 +47,13 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Нет прав на редактирование' });
       }
     }
-    const {title, tags, content, author, date, atts, comments, parentId} = req.body;
+    const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
     await db.execute({
-      sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?
+      sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?, sortOrder=?
             WHERE id=?`,
       args: [
         title, JSON.stringify(tags), content, author, date,
-        JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, id
+        JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, sortOrder ?? 0, id
       ]
     });
     return res.json({ success: true });

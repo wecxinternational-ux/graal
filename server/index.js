@@ -260,23 +260,32 @@ app.get('/api/items', async (req, res) => {
 });
 
 app.post('/api/items', authenticateToken, async (req, res) => {
-  const {name, type, rarity, attune, stage, price, qty, desc, author, img} = req.body;
+  const {name, type, rarity, attune, stage, price, desc, author, img} = req.body;
   const result = await db.execute({
-    sql: `INSERT INTO items (name, type, rarity, attune, stage, price, qty, "desc", author, img, awardedTo)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [name, type || 'Чудесный предмет', rarity, attune, stage, price || 0, qty || 1, desc, author || req.user.username, img, '[]']
+    sql: `INSERT INTO items (name, type, rarity, attune, stage, price, "desc", author, img, awardedTo)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [name, type || 'Чудесный предмет', rarity, attune, stage, price || 0, desc, author || req.user.username, img, '[]']
   });
   res.json({ id: Number(result.lastInsertRowid), ...req.body, awardedTo: [] });
 });
 
-app.put('/api/items/:id', authenticateToken, async (req, res) => {
-  const {id} = req.params;
-  const {name, type, rarity, attune, stage, price, qty, desc, author, img, awardedTo} = req.body;
+app.put('/api/items', authenticateToken, async (req, res) => {
+  const {id} = req.query;
+  const {name, type, rarity, attune, stage, price, desc, author, img, awardedTo} = req.body;
   await db.execute({
-    sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, qty=?, "desc"=?, author=?, img=?, awardedTo=?
+    sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, "desc"=?, author=?, img=?, awardedTo=?
           WHERE id=?`,
-    args: [name, type, rarity, attune, stage, price, qty, desc, author, img, JSON.stringify(awardedTo), id]
+    args: [name, type, rarity, attune, stage, price, desc, author, img, JSON.stringify(awardedTo), id]
   });
+  res.json({ success: true });
+});
+
+app.delete('/api/items', authenticateToken, async (req, res) => {
+  if (req.user?.role !== 'gm') {
+    return res.status(403).json({ error: 'Только ГМ может удалять предметы' });
+  }
+  const {id} = req.query;
+  await db.execute({ sql: 'DELETE FROM items WHERE id=?', args: [id] });
   res.json({ success: true });
 });
 
@@ -293,12 +302,12 @@ app.get('/api/notes', async (req, res) => {
 });
 
 app.post('/api/notes', authenticateToken, async (req, res) => {
-  const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
+  const {title, tags, content, author, date, atts, comments} = req.body;
   const result = await db.execute({
-    sql: `INSERT INTO notes (title, tags, content, isPublic, author, date, atts, comments)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO notes (title, tags, content, author, date, atts, comments)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
     args: [
-      title, JSON.stringify(tags || []), content, isPublic ? 1 : 0,
+      title, JSON.stringify(tags || []), content,
       author || req.user.username, date || new Date().toISOString().split('T')[0],
       JSON.stringify(atts || []), JSON.stringify(comments || [])
     ]
@@ -306,8 +315,8 @@ app.post('/api/notes', authenticateToken, async (req, res) => {
   res.json({ id: Number(result.lastInsertRowid), ...req.body });
 });
 
-app.put('/api/notes/:id', authenticateToken, async (req, res) => {
-  const {id} = req.params;
+app.put('/api/notes', authenticateToken, async (req, res) => {
+  const {id} = req.query;
   // Спец-режим: добавление комментария (доступно любому аутентифицированному)
   if (req.body?.__action === 'addComment') {
     const existing = (await db.execute({ sql: 'SELECT comments FROM notes WHERE id=?', args: [id] })).rows[0];
@@ -317,12 +326,12 @@ app.put('/api/notes/:id', authenticateToken, async (req, res) => {
     await db.execute({ sql: 'UPDATE notes SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
     return res.json({ success: true, comments });
   }
-  const {title, tags, content, isPublic, author, date, atts, comments} = req.body;
+  const {title, tags, content, author, date, atts, comments} = req.body;
   await db.execute({
-    sql: `UPDATE notes SET title=?, tags=?, content=?, isPublic=?, author=?, date=?, atts=?, comments=?
+    sql: `UPDATE notes SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
           WHERE id=?`,
     args: [
-      title, JSON.stringify(tags), content, isPublic ? 1 : 0, author, date,
+      title, JSON.stringify(tags), content, author, date,
       JSON.stringify(atts), JSON.stringify(comments), id
     ]
   });
@@ -341,22 +350,22 @@ app.get('/api/guides', async (req, res) => {
 });
 
 app.post('/api/guides', authenticateToken, async (req, res) => {
-  const {title, tags, content, author, date, atts, comments, parentId} = req.body;
+  const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
   const result = await db.execute({
-    sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId, sortOrder)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       title, JSON.stringify(tags || []), content, author || req.user.username,
       date || new Date().toISOString().split('T')[0],
       JSON.stringify(atts || []), JSON.stringify(comments || []),
-      parentId ?? null
+      parentId ?? null, sortOrder ?? 0
     ]
   });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null });
+  res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null, sortOrder: sortOrder ?? 0 });
 });
 
-app.put('/api/guides/:id', authenticateToken, async (req, res) => {
-  const {id} = req.params;
+app.put('/api/guides', authenticateToken, async (req, res) => {
+  const {id} = req.query;
   // Спец-режим: добавление комментария (доступно любому аутентифицированному)
   if (req.body?.__action === 'addComment') {
     const existing = (await db.execute({ sql: 'SELECT comments FROM guides WHERE id=?', args: [id] })).rows[0];
@@ -366,13 +375,13 @@ app.put('/api/guides/:id', authenticateToken, async (req, res) => {
     await db.execute({ sql: 'UPDATE guides SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
     return res.json({ success: true, comments });
   }
-  const {title, tags, content, author, date, atts, comments, parentId} = req.body;
+  const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
   await db.execute({
-    sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?
+    sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?, sortOrder=?
           WHERE id=?`,
     args: [
       title, JSON.stringify(tags), content, author, date,
-      JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, id
+      JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, sortOrder ?? 0, id
     ]
   });
   res.json({ success: true });
@@ -394,8 +403,8 @@ app.post('/api/players', authenticateToken, async (req, res) => {
   res.json({ id: Number(result.lastInsertRowid), ...req.body });
 });
 
-app.put('/api/players/:id', authenticateToken, async (req, res) => {
-  const {id} = req.params;
+app.put('/api/players', authenticateToken, async (req, res) => {
+  const {id} = req.query;
   const {name, discord, points, slots, chars} = req.body;
   await db.execute({
     sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?
@@ -405,8 +414,8 @@ app.put('/api/players/:id', authenticateToken, async (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/players/:id', authenticateToken, requireGm, async (req, res) => {
-  const {id} = req.params;
+app.delete('/api/players', authenticateToken, requireGm, async (req, res) => {
+  const {id} = req.query;
   await db.execute({ sql: 'DELETE FROM players WHERE id=?', args: [id] });
   res.json({ success: true });
 });
@@ -482,8 +491,8 @@ app.post('/api/transactions', authenticateToken, async (req, res) => {
   res.json({ id: Number(result.lastInsertRowid), player, desc, cost, status: status || 'pending', type: 'transaction' });
 });
 
-app.put('/api/transactions/:id', authenticateToken, requireGm, async (req, res) => {
-  const {id} = req.params;
+app.put('/api/transactions', authenticateToken, requireGm, async (req, res) => {
+  const {id} = req.query;
   const {player, desc, cost, status, type} = req.body;
   await db.execute({
     sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=?, type=? WHERE id=?',
