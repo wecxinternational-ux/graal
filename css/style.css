@@ -455,6 +455,7 @@ input[type=number].inp{-moz-appearance:textfield;appearance:textfield}
 .mo.on{display:flex;animation:mbg .15s ease}
 @keyframes mbg{from{opacity:0}to{opacity:1}}
 .md{background:var(--bg-s);border:1px solid var(--bdr-s);border-radius:var(--rl);width:100%;max-width:540px;max-height:92vh;display:flex;flex-direction:column;animation:mi .2s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden}
+.img-view-md{flex-direction:row!important;max-width:95vw!important;max-height:95vh!important}
 .md::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--pur),var(--gold),transparent)}
 .md-w{max-width:780px}
 .mh{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--bdr)}

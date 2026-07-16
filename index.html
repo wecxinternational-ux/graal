@@ -442,7 +442,17 @@
         <div class="fg"><label>Цена (ОС)</label><input class="inp" type="number" id="ni-price" placeholder="0" min="0"></div>
         <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ni-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
         <div class="fg"><label>Автор</label><input class="inp" id="ni-author" placeholder="Мастер…"></div>
-        <div class="fg"><label>URL изображения</label><input class="inp" id="ni-img" placeholder="https://…"></div>
+        <div class="fg fg-full">
+          <label>Изображение</label>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input class="inp" id="ni-img" placeholder="https://… или загрузите файл">
+            <div class="fdz" id="ni-fdz" onclick="document.getElementById('ni-file-inp').click()" ondragover="e=>e.preventDefault()" ondrop="handleDrop(event,'ni')">
+              <input type="file" id="ni-file-inp" accept="image/*" onchange="handleFiles(event,'ni')">
+              <div id="ni-img-preview" style="display:none;margin-bottom:8px"><img id="ni-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              Перетащите изображение или нажмите для загрузки
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="mf">

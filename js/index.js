@@ -425,6 +425,9 @@ async function addItem(){
   toast(`«${it.name}» добавлен`,'ok');
   closeModal('m-add-item');
   ['ni-name','ni-type','ni-price','ni-desc','ni-author','ni-img'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  document.getElementById('ni-img-preview').style.display='none';
+  document.getElementById('ni-file-inp').value='';
+  noteAtts.ni=[];
   renderItems();
 }
 
@@ -602,13 +605,15 @@ function handleDrop(e,pfx){
 function readFile(file,pfx){
   const reader=new FileReader();
   reader.onload=ev=>{
-    if(pfx==='nc'){
-      const preview=document.getElementById('nc-img-preview');
-      const previewImg=document.getElementById('nc-img-preview-img');
+    if(pfx==='nc'||pfx==='ni'){
+      const preview=document.getElementById(`${pfx}-img-preview`);
+      const previewImg=document.getElementById(`${pfx}-img-preview-img`);
+      const imgInput=document.getElementById(`${pfx}-img`);
       if(preview&&previewImg){
         previewImg.src=ev.target.result;
         preview.style.display='block';
       }
+      if(imgInput)imgInput.value=ev.target.result;
       noteAtts[pfx]=[{name:file.name,type:file.type,data:ev.target.result}];
     }else{
       noteAtts[pfx]=noteAtts[pfx]||[];
@@ -1318,16 +1323,15 @@ async function addComment(){
 }
 function previewAtt(name,data,type){
   if(type&&type.startsWith('image/')){
-    // Открываем модалку с полноразмерным изображением
     let m=document.getElementById('m-img-view');
     if(!m){
       m=document.createElement('div');
       m.id='m-img-view';
       m.className='mo';
       m.style.zIndex=600;
-      m.innerHTML=`<div class="md" style="max-width:90vw;max-height:90vh;background:transparent;border:none;box-shadow:none">
-        <button class="mc-btn" style="position:absolute;top:-40px;right:0;color:#fff;font-size:24px" onclick="closeModal('m-img-view')">✕</button>
-        <img id="img-view-el" style="display:block;max-width:90vw;max-height:85vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6)">
+      m.innerHTML=`<div class="md img-view-md" style="max-width:95vw;max-height:95vh;background:transparent;border:none;box-shadow:none;align-items:center;justify-content:center;overflow:hidden">
+        <button class="mc-btn" style="position:absolute;top:-40px;right:0;color:#fff;font-size:24px;z-index:1" onclick="closeModal('m-img-view')">✕</button>
+        <img id="img-view-el" style="display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6)">
         <div id="img-view-cap" style="text-align:center;color:#ccc;font-size:12px;margin-top:8px"></div>
       </div>`;
       document.body.appendChild(m);
