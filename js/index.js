@@ -605,7 +605,7 @@ function handleDrop(e,pfx){
 function readFile(file,pfx){
   const reader=new FileReader();
   reader.onload=ev=>{
-    if(pfx==='nc'||pfx==='ni'){
+    if(pfx==='nc'||pfx==='ni'||pfx.startsWith('ce-')){
       const preview=document.getElementById(`${pfx}-img-preview`);
       const previewImg=document.getElementById(`${pfx}-img-preview-img`);
       const imgInput=document.getElementById(`${pfx}-img`);
@@ -2084,6 +2084,15 @@ function openPlayerDetail(pid){
             <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
             <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
             <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="2">${c.desc||''}</textarea></div>
+            <div class="fg fg-full">
+              <label>Аватар персонажа</label>
+              <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
+                <input type="file" id="ce-file-inp-${i}" accept="image/*" onchange="handleFiles(event,'ce-${i}')">
+                <div id="ce-img-preview-${i}" style="display:none;margin-bottom:8px"><img id="ce-img-preview-img-${i}" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+                ${c.img?`<div style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
+                Перетащите изображение или нажмите для выбора
+              </div>
+            </div>
           </div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn btn-p" onclick="saveChar(${i})">Сохранить</button>
@@ -2155,6 +2164,8 @@ async function saveChar(idx){
     parseInt(document.getElementById(`ce-os-4-${idx}`).value)||0
   ];
   c.desc=document.getElementById(`ce-desc-${idx}`).value.trim();
+  const imgData=(noteAtts[`ce-${idx}`]||[])[0]?.data;
+  if(imgData)c.img=imgData;
 
   try{
     await apiRequest('/players',{
