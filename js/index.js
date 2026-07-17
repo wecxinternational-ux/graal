@@ -2236,7 +2236,7 @@ function openPlayerDetail(pid){
             <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${i}" value="${normalizeOs(c.os)[1]}"></div>
             <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
             <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
-            <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="2">${c.desc||''}</textarea></div>
+            <div class="fg fg-full"><label>Табло (открытый контент)</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Например: Ищу группу на квест X, или: Продаю предмет Y...">${c.desc||''}</textarea></div>
             <div class="fg fg-full">
               <label>Аватар персонажа</label>
               <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
@@ -2341,6 +2341,13 @@ function openCharDetail(idx){
           <div class="char-meta" style="font-size:13px;margin-top:4px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
         </div>
       </div>
+
+      ${c.desc?`
+        <div style="background:var(--bg-e);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m);margin-bottom:6px">Табло</div>
+          <div style="font-size:13px;color:var(--txt-s);line-height:1.6">${formatDesc(c.desc)}</div>
+        </div>
+      `:''}
 
       <div class="char-stats">
         <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
