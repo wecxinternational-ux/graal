@@ -405,11 +405,11 @@ app.post('/api/players', authenticateToken, async (req, res) => {
 
 app.put('/api/players', authenticateToken, async (req, res) => {
   const {id} = req.query;
-  const {name, discord, points, slots, chars} = req.body;
+  const {name, discord, points, slots, chars, img} = req.body;
   await db.execute({
-    sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?
+    sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
           WHERE id=?`,
-    args: [name, discord, points, slots, JSON.stringify(chars), id]
+    args: [name, discord, points, slots, JSON.stringify(chars), img, id]
   });
   res.json({ success: true });
 });

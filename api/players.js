@@ -34,11 +34,11 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Можно редактировать только свой профиль' });
       }
     }
-    const {name, discord, points, slots, chars} = req.body;
+    const {name, discord, points, slots, chars, img} = req.body;
     await db.execute({
-      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?
+      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
             WHERE id=?`,
-      args: [name, discord, points, slots, JSON.stringify(chars), id]
+      args: [name, discord, points, slots, JSON.stringify(chars), img, id]
     });
     return res.json({ success: true });
   }

@@ -122,7 +122,7 @@ input[type=number].inp::-webkit-inner-spin-button{-webkit-appearance:none;margin
 input[type=number].inp{-moz-appearance:textfield;appearance:textfield}
 
 /* ── Filter bar ── */
-.fb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.fb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:22px;position:relative;z-index:10}
 .sw-w{position:relative;flex:1;min-width:200px}
 .sw-ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--txt-m);pointer-events:none}
 .sw-w .inp{padding-left:34px}
@@ -145,7 +145,7 @@ input[type=number].inp{-moz-appearance:textfield;appearance:textfield}
 .msel-value{color:var(--txt-s);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
 .msel-arrow{font-size:10px;color:var(--txt-m);transition:transform .2s;margin-left:auto}
 .msel-trigger.active .msel-arrow{transform:rotate(180deg)}
-.msel-dropdown{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--bg-c);border:1px solid var(--bdr);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:400;display:none;max-height:220px;overflow-y:auto}
+.msel-dropdown{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--bg-e);border:1px solid var(--bdr);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:400;display:none;max-height:220px;overflow-y:auto}
 .msel-dropdown.open{display:block}
 .msel-option{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;transition:background .15s;font-size:12px;color:var(--txt-s)}
 .msel-option:hover{background:var(--bg-e)}

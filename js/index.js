@@ -1853,11 +1853,9 @@ function addRepRow(fac='', val='', note=''){
   const facOptions=(DB.factions||[]).map(f=>`<option value="${f.name}" style="color:${f.color}" ${f.name===fac?'selected':''}>${f.name}</option>`).join('');
   row.innerHTML=`
     <div class="fac-wrap" style="position:relative">
-      <select class="inp rep-fac" style="width:100%;padding-right:28px;appearance:none;cursor:pointer">
-        <option value="">Фракция…</option>
-        ${facOptions}
-      </select>
-      <div class="sel-arrow">▼</div>
+      <input class="inp rep-fac" placeholder="Фракция…" value="${fac.replace(/"/g,'&quot;')}" autocomplete="off"
+             oninput="facInputFor(this)" onfocus="facInputFor(this)" onblur="setTimeout(()=>hideFacFor(this),180)">
+      <div class="fac-drop rep-drop"></div>
     </div>
     <input class="inp rep-val" type="number" placeholder="+0" value="${val}" min="-100" max="100" style="text-align:center">
     <button class="btn btn-x" style="padding:8px 0;font-size:13px;line-height:1.4" title="Удалить" onclick="this.parentElement.remove()">✕</button>
@@ -1868,8 +1866,8 @@ function facInputFor(input){
   const val=(input.value||'').toLowerCase();
   const drop=input.parentElement.querySelector('.rep-drop');
   if(!drop)return;
-  const matches=DB.factions.filter(f=>f.name.toLowerCase().includes(val));
-  if(!matches.length||!val){drop.classList.remove('on');return}
+  const matches=val?DB.factions.filter(f=>f.name.toLowerCase().includes(val)):DB.factions;
+  if(!matches.length){drop.classList.remove('on');return}
   drop.innerHTML=matches.map(f=>`
     <div class="fac-opt" onclick="selectFacFor('${f.name.replace(/'/g,"\\'")}',this)">
       <div class="fac-dot" style="background:${f.color}"></div>${f.name}
@@ -2409,6 +2407,20 @@ function openCharDetail(idx){
         </div>
       `:''}
 
+      ${(c.rep&&c.rep.length)?`
+        <div style="background:var(--bg-e);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m);margin-bottom:8px">Репутация</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${c.rep.map(r=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
+                <span style="color:var(--txt-s)">${r.fac||'—'}</span>
+                <span style="${parseInt(r.val)>=0?'color:#4ade80':'color:#f87171'}">${r.val>=0?'+':''}${r.val}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `:''}
+
       <div class="char-stats">
         <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
         <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
@@ -2609,7 +2621,8 @@ async function createCharacter(){
       body:JSON.stringify({
         name:me.name, discord:me.discord,
         points:me.points, slots:me.slots,
-        chars:me.chars
+        chars:me.chars,
+        img:me.img
       })
     },{id:me.id});
 

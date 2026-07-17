@@ -62,7 +62,8 @@ const SCHEMA_STATEMENTS = [
     points INTEGER DEFAULT 0,
     slots INTEGER DEFAULT 1,
     chars TEXT DEFAULT '[]',
-    userId INTEGER
+    userId INTEGER,
+    img TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -234,6 +235,14 @@ function ensureInit() {
         }
       } catch (e) {
         console.error('guides sortOrder migration failed (ignored): ' + e.message);
+      }
+      try {
+        const cols = (await db.execute('PRAGMA table_info(players)')).rows;
+        if (cols.length && !cols.some(c => c.name === 'img')) {
+          await db.execute('ALTER TABLE players ADD COLUMN img TEXT');
+        }
+      } catch (e) {
+        console.error('players img migration failed (ignored): ' + e.message);
       }
       try {
         await seedData();
