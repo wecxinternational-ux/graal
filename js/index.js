@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 /* ── Constants ── */
 const RARITY={common:'Обычный',uncommon:'Необычный',rare:'Редкий',very_rare:'Очень редкий',legendary:'Легендарный',artifact:'Артефакт',none:'Без редкости',varies:'Варьируется'};
-const STAGES={1:'I этап',2:'II этап',3:'III этап',4:'IV этап'};
+const STAGES={0:'Без этапа',1:'I этап',2:'II этап',3:'III этап',4:'IV этап'};
 const ATTUNE={yes:'Требуется',no:'Нет',other:'Особая'};
 const ITEM_EMO={Оружие:'⚔',Доспехи:'🛡',Кольцо:'💍',Зелье:'⚗',Одеяние:'🪄',Артефакт:'✨',Свиток:'📜'};
 const ALL_TAGS=['Перевод','Правила','Лор','Объявление','Карта','НИП'];
@@ -292,6 +292,18 @@ const FACTIONS_DEFAULT=[
   {name:'Нейтральные',color:'#9CA3AF'},
 ];
 function emo(type){const k=Object.keys(ITEM_EMO).find(k=>type?.includes(k));return k?ITEM_EMO[k]:'🔮'}
+function formatDesc(desc){
+  if(!desc)return '';
+  let html=desc
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>');
+  return `<p>${html}</p>`;
+}
 
 /* ── State ── */
 let DB={
@@ -431,19 +443,86 @@ async function addItem(){
   renderItems();
 }
 
-/* Item detail */
+function openEditItem(){
+  const it=DB.items.find(x=>x.id===currentItemId);
+  if(!it)return;
+  document.getElementById('ei-name').value=it.name||'';
+  document.getElementById('ei-rar').value=it.rarity||'common';
+  document.getElementById('ei-type').value=it.type||'';
+  document.getElementById('ei-att').value=it.attune||'no';
+  document.getElementById('ei-stg').value=it.stage||1;
+  document.getElementById('ei-price').value=it.price||'';
+  document.getElementById('ei-desc').value=it.desc||'';
+  document.getElementById('ei-author').value=it.author||'';
+  document.getElementById('ei-img').value=it.img||'';
+
+  const currImg=document.getElementById('ei-current-img');
+  const currImgEl=document.getElementById('ei-current-img-el');
+  const prevImg=document.getElementById('ei-img-preview');
+  if(it.img){
+    currImgEl.src=it.img;
+    currImg.style.display='block';
+    prevImg.style.display='none';
+  }else{
+    currImg.style.display='none';
+    prevImg.style.display='none';
+  }
+  document.getElementById('ei-file-inp').value='';
+  noteAtts.ei=[];
+
+  closeModal('m-item-detail');
+  openModal('m-edit-item');
+}
+
+async function saveItem(){
+  const it=DB.items.find(x=>x.id===currentItemId);
+  if(!it)return;
+
+  const name=document.getElementById('ei-name').value.trim();
+  if(!name){toast('Введите название','er');return}
+
+  const imgData=(noteAtts.ei||[])[0]?.data;
+  const img=imgData||document.getElementById('ei-img').value.trim();
+
+  const updated={
+    ...it,
+    name,
+    type:document.getElementById('ei-type').value.trim()||'Чудесный предмет',
+    rarity:document.getElementById('ei-rar').value,
+    attune:document.getElementById('ei-att').value,
+    stage:parseInt(document.getElementById('ei-stg').value),
+    price:parseInt(document.getElementById('ei-price').value)||0,
+    desc:document.getElementById('ei-desc').value.trim(),
+    author:document.getElementById('ei-author').value.trim()||currentUser?.username||'Мастер Эрандил',
+    img
+  };
+
+  await apiRequest('/items', {
+    method: 'PUT',
+    body: JSON.stringify(updated)
+  }, { id: it.id });
+
+  const idx=DB.items.findIndex(x=>x.id===it.id);
+  if(idx!==-1)DB.items[idx]=updated;
+
+  await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> отредактирован. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+  toast(`«${name}» обновлён`,'ok');
+  closeModal('m-edit-item');
+  renderItems();
+}
+
 function openItemDetail(id){
   const it=DB.items.find(x=>x.id===id);if(!it)return;
   currentItemId=id;
   document.getElementById('det-title').textContent=it.name;
   const awSel=document.getElementById('aw-player');
-  // Выдавать предметы можно только игрокам с хотя бы одним заверённым персонажем
   const eligiblePlayers=DB.players.filter(p=>(p.chars||[]).some(c=>c.verified));
-  awSel.innerHTML='<option value="">Выбрать игрока…</option>'+eligiblePlayers.map(p=>`<option>${p.name}</option>`).join('');
+  awSel.innerHTML='<option value="">Выбрать игрока…</option>'+eligiblePlayers.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('aw-char').innerHTML='<option value="">Выбрать персонажа…</option>';
   const totalAwarded=it.awardedTo.reduce((s,a)=>s+a.qty,0);
   const awdHtml=it.awardedTo.length?`<div class="aw-list">${it.awardedTo.map(a=>`
     <div class="aw-li">
-      <span class="aw-li-n">${a.player}</span>
+      <span class="aw-li-n">${a.player}${a.charName?' → '+a.charName:''}</span>
       <span class="aw-li-q">×${a.qty}</span>
     </div>`).join('')}</div>`:'<p style="font-size:12px;color:var(--txt-m);margin-top:6px">Ещё никому не выдан</p>';
   document.getElementById('det-body').innerHTML=`
@@ -459,37 +538,70 @@ function openItemDetail(id){
         <div class="sr"><strong>Автор:</strong>${it.author}</div>
       </div>
     </div>
-    <div class="id-desc">${it.desc}</div>
+    <div class="id-desc">${formatDesc(it.desc)}</div>
     <div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m)">Выдано игрокам</div>
     ${awdHtml}`;
   openModal('m-item-detail');
 }
+function updateCharSelect(){
+  const playerName=document.getElementById('aw-player').value;
+  const charSel=document.getElementById('aw-char');
+  if(!playerName){
+    charSel.innerHTML='<option value="">Выбрать персонажа…</option>';
+    return;
+  }
+  const p=DB.players.find(x=>x.name===playerName);
+  if(!p||!p.chars||!p.chars.length){
+    charSel.innerHTML='<option value="">Нет персонажей</option>';
+    return;
+  }
+  const verifiedChars=p.chars.filter(c=>c.verified);
+  charSel.innerHTML='<option value="">Выбрать персонажа…</option>'+verifiedChars.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
+}
 async function awardItem(){
   const it=DB.items.find(x=>x.id===currentItemId);
   const player=document.getElementById('aw-player').value;
+  const charName=document.getElementById('aw-char').value;
   const qty=parseInt(document.getElementById('aw-qty').value)||1;
-  if(!it||!player||player.startsWith('Выбрать')){toast('Выберите игрока','er');return}
+  if(!it||!player){toast('Выберите игрока','er');return}
+  if(!charName){toast('Выберите персонажа','er');return}
   if(qty<1){toast('Количество должно быть ≥ 1','er');return}
-  const exIdx=it.awardedTo.findIndex(a=>a.player===player);
-  if(exIdx!==-1)it.awardedTo[exIdx].qty+=qty;
-  else it.awardedTo.push({player,qty});
+  document.getElementById('confirm-award-text').textContent=`Вы уверены, что хотите выдать предмет «${it.name}» персонажу ${charName} (игрок: ${player}) ×${qty}?`;
+  openModal('m-confirm-award');
+}
+async function confirmAwardItem(){
+  const it=DB.items.find(x=>x.id===currentItemId);
+  const player=document.getElementById('aw-player').value;
+  const charName=document.getElementById('aw-char').value;
+  const qty=parseInt(document.getElementById('aw-qty').value)||1;
+  if(!it||!player||!charName)return;
+  closeModal('m-confirm-award');
+  const exIdx=it.awardedTo.findIndex(a=>a.player===player&&(a.charName===charName||!a.charName));
+  if(exIdx!==-1){
+    it.awardedTo[exIdx].qty+=qty;
+    it.awardedTo[exIdx].charName=charName;
+  } else {
+    it.awardedTo.push({player,charName,qty});
+  }
   await apiRequest('/items', {
     method: 'PUT',
     body: JSON.stringify(it)
   }, { id: it.id });
-  await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> выдан <span class="li-pl">${player}</span> ×${qty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
-  toast(`«${it.name}» выдан ${player} ×${qty}`,'ok');
+  await addLog('item','⚔',`Предмет <span class="li-it">«${it.name}»</span> выдан <span class="li-pl">${player}/${charName}</span> ×${qty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+  toast(`«${it.name}» выдан ${charName} ×${qty}`,'ok');
   closeModal('m-item-detail');renderItems();
 }
 async function revokeItem(){
   const it=DB.items.find(x=>x.id===currentItemId);
   const player=document.getElementById('aw-player').value;
+  const charName=document.getElementById('aw-char').value;
   const qty=parseInt(document.getElementById('aw-qty').value)||1;
-  if(!it||!player||player.startsWith('Выбрать')){toast('Выберите игрока','er');return}
-  const exIdx=it.awardedTo.findIndex(a=>a.player===player);
-  if(exIdx===-1){toast('У этого игрока нет данного предмета','er');return}
+  if(!it||!player){toast('Выберите игрока','er');return}
+  if(!charName){toast('Выберите персонажа','er');return}
+  const exIdx=it.awardedTo.findIndex(a=>a.player===player&&(a.charName===charName||!a.charName));
+  if(exIdx===-1){toast('У этого персонажа нет данного предмета','er');return}
   const ex=it.awardedTo[exIdx];
-  if(ex.qty<qty){toast(`У игрока только ×${ex.qty}, нельзя изъять ×${qty}`,'er');return}
+  if(ex.qty<qty){toast(`У персонажа только ×${ex.qty}, нельзя изъять ×${qty}`,'er');return}
   const actualQty=qty;
   ex.qty-=actualQty;
   if(ex.qty<=0)it.awardedTo.splice(exIdx,1);
@@ -497,8 +609,8 @@ async function revokeItem(){
     method: 'PUT',
     body: JSON.stringify(it)
   }, { id: it.id });
-  await addLog('revoke','🚫',`Предмет <span class="li-it">«${it.name}»</span> изъят у <span class="li-pl">${player}</span> ×${actualQty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
-  toast(`«${it.name}» изъят у ${player} ×${actualQty}`,'ok');
+  await addLog('revoke','🚫',`Предмет <span class="li-it">«${it.name}»</span> изъят у <span class="li-pl">${player}/${charName}</span> ×${actualQty}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+  toast(`«${it.name}» изъят у ${charName} ×${actualQty}`,'ok');
   closeModal('m-item-detail');renderItems();
 }
 
@@ -520,10 +632,17 @@ function quickRevoke(playerName){
   const ex=it.awardedTo.find(a=>a.player===playerName);if(!ex)return;
   const sel=document.getElementById('aw-player');
   for(let i=0;i<sel.options.length;i++){
-    if(sel.options[i].text===playerName){sel.selectedIndex=i;break}
+    if(sel.options[i].value===playerName){sel.selectedIndex=i;break}
+  }
+  updateCharSelect();
+  if(ex.charName){
+    const charSel=document.getElementById('aw-char');
+    for(let i=0;i<charSel.options.length;i++){
+      if(charSel.options[i].value===ex.charName){charSel.selectedIndex=i;break}
+    }
   }
   document.getElementById('aw-qty').value=ex.qty;
-  toast(`Выбран ${playerName} ×${ex.qty} — нажмите «Изъять»`,'if');
+  toast(`Выбран ${playerName}${ex.charName?'/'+ex.charName:''} ×${ex.qty} — нажмите «Изъять»`,'if');
 }
 
 /* ══════════════
@@ -605,7 +724,7 @@ function handleDrop(e,pfx){
 function readFile(file,pfx){
   const reader=new FileReader();
   reader.onload=ev=>{
-    if(pfx==='nc'||pfx==='ni'||pfx.startsWith('ce-')){
+    if(pfx==='nc'||pfx==='ni'||pfx==='ei'||pfx.startsWith('ce-')||pfx==='pd'){
       const preview=document.getElementById(`${pfx}-img-preview`);
       const previewImg=document.getElementById(`${pfx}-img-preview-img`);
       const imgInput=document.getElementById(`${pfx}-img`);
@@ -1351,7 +1470,7 @@ document.getElementById('thread-view').addEventListener('click',e=>{if(e.target=
 ══════════════ */
 function populatePlayerSelects(){
   const opts='<option value="">Выбрать игрока…</option>'+DB.players.map(p=>`<option>${p.name}</option>`).join('');
-  ['gm-pts-player','gm-kt-player','gm-cer-player'].forEach(id=>{
+  ['gm-pts-player','gm-kt-player','gm-cer-player','gm-slots-player'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.innerHTML=opts;
   });
 }
@@ -1392,6 +1511,23 @@ async function gmGivePoints(){
   await addLog('award','💎',`<span class="li-pl">${pname}</span> получил <strong>+${amt} поинтов</strong>. Причина: ${reason||'—'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${pname} +${amt} поинтов`,'ok');
   document.getElementById('gm-pts-amt').value='';document.getElementById('gm-pts-reason').value='';
+}
+async function gmChangeSlots(){
+  const pname=document.getElementById('gm-slots-player').value;
+  const amt=parseInt(document.getElementById('gm-slots-amt').value)||0;
+  if(!pname){toast('Выберите игрока','er');return}
+  if(!amt){toast('Введите количество слотов','er');return}
+  const p=DB.players.find(x=>x.name===pname);
+  if(!p){toast('Игрок не найден','er');return}
+  p.slots=(p.slots||1)+amt;
+  if(p.slots<1)p.slots=1;
+  await apiRequest('/players', {
+    method: 'PUT',
+    body: JSON.stringify(p)
+  }, { id: p.id });
+  await addLog('slots','🎒',`<span class="li-pl">${pname}</span> слоты: ${(p.slots-amt)||1} → ${p.slots}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+  toast(`${pname}: ${(p.slots-amt)||1} → ${p.slots} слотов`,'ok');
+  document.getElementById('gm-slots-amt').value='';
 }
 async function gmApplyKt(){
   const pname=document.getElementById('gm-kt-player').value;
@@ -1484,23 +1620,31 @@ async function gmCertify(status){
   await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${cname} ${status?'заверен':'разаверен'}. ${!status?'Слот освобожден':''}`,'ok');
 }
+const TX_CATEGORIES={item:'Предмет',quest:'Квест',reputation:'Репутация',points:'Поинты/ОС',other:'Другое'};
 function renderTx(){
   const list=document.getElementById('tx-list');
   if(!list)return;
   const isGm=currentUser?.role==='gm';
+  const catFilter=document.getElementById('tx-category-f')?.value||'';
   // ГМ видит все ожидающие, игрок — только свои
   let items=DB.transactions.filter(t=>t.status==='pending');
   if(!isGm)items=items.filter(t=>t.player===currentUser?.username);
+  if(catFilter)items=items.filter(t=>t.category===catFilter);
   if(!items.length){
     list.innerHTML='<div style="font-size:12px;color:var(--txt-m);text-align:center;padding:20px">'+(isGm?'Нет ожидающих транзакций':'У вас нет ожидающих запросов')+'</div>';
     return;
   }
   list.innerHTML=items.map(t=>{
     const isReq=t.type==='request';
+    const catName=TX_CATEGORIES[t.category]||t.category||'Другое';
     return `
     <div class="tx ${isReq?'tx-req':''}" id="tx-${t.id}">
       <div class="tx-inf">
-        <span class="tx-pl">${t.player}${isReq?' <span class="tx-tag">запрос</span>':''}</span>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="tx-pl">${t.player}</span>
+          ${isReq?`<span class="tx-tag">запрос</span>`:''}
+          <span class="tx-tag" style="background:var(--bg-h)">${catName}</span>
+        </div>
         <span class="tx-ds">${t.desc}</span>
       </div>
       ${isReq?'':`<span class="tx-co">${t.cost} pts</span>`}
@@ -1545,11 +1689,12 @@ function openRequestModal(){
 }
 async function sendRequest(){
   const text=document.getElementById('req-text').value.trim();
+  const category=document.getElementById('req-category').value;
   if(!text){toast('Введите текст запроса','er');return}
   try{
     const data=await apiRequest('/transactions',{
       method:'POST',
-      body:JSON.stringify({desc:text,type:'request',cost:0})
+      body:JSON.stringify({desc:text,type:'request',cost:0,category})
     });
     // Добавляем в локальную копию
     if(!DB.transactions)DB.transactions=[];
@@ -1952,7 +2097,7 @@ function renderPlayers(){
   g.innerHTML=list.map(p=>`
     <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerDetail(${p.id})">
       ${isGm?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить игрока">✕</button>`:''}
-      <div class="ic-ph">👤</div>
+      <div class="ic-ph">${p.img?`<img src="${p.img}" style="width:100%;height:100%;object-fit:cover">`:'👤'}</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
         <div class="ic-ty">${p.discord||'—'}</div>
@@ -1989,9 +2134,17 @@ function openPlayerDetail(pid){
   const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
   const canManage=isGm||isOwnProfile;
 
+  const avatarEl=document.getElementById('pd-avatar');
+  if(p.img){
+    avatarEl.innerHTML=`<img src="${p.img}" style="width:100%;height:100%;object-fit:cover">`;
+  }else{
+    avatarEl.innerHTML='👤';
+  }
   document.getElementById('pd-name').textContent=p.name;
   document.getElementById('pd-discord').textContent=p.discord||'—';
   document.getElementById('pd-points').textContent=`${p.points||0} pts`;
+  document.getElementById('pd-avatar-edit').style.display=isOwnProfile?'block':'none';
+  document.getElementById('pd-avatar-url').value=p.img||'';
   const charCount=p.chars?.length||0;
   const usedSlots=p.chars?.filter(c=>c.verified).length||0;
   const totalSlots=p.slots||1;
@@ -2013,7 +2166,7 @@ function openPlayerDetail(pid){
 
     charsList.innerHTML=p.chars.map((c,i)=>`
       <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
-        <div class="char-head" style="cursor:pointer" onclick="toggleCharDetails(${i})">
+        <div class="char-head" style="cursor:pointer" onclick="openCharDetail(${i})">
           <div style="display:flex;align-items:center;gap:12px">
             ${c.img?`<img src="${c.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0">`:''}
             <div>
@@ -2136,6 +2289,114 @@ function toggleCharDetails(idx){
   const isOpen=details.style.display!=='none';
   details.style.display=isOpen?'none':'block';
   if(arrow)arrow.textContent=isOpen?'▾':'▴';
+}
+
+async function savePlayerAvatar(){
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p)return;
+  const url=document.getElementById('pd-avatar-url').value.trim();
+  const imgData=(noteAtts['pd']||[])[0]?.data;
+  if(imgData){
+    p.img=imgData;
+  }else if(url){
+    p.img=url;
+  }else{
+    delete p.img;
+  }
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify(p)
+    },{id:p.id});
+    toast('Аватар сохранён','ok');
+    openPlayerDetail(currentPlayerId);
+    renderPlayers();
+  }catch(e){
+    toast(e.message||'Ошибка сохранения','er');
+  }
+}
+
+function openCharDetail(idx){
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p||!p.chars[idx]){toast('Персонаж не найден','er');return}
+  const c=p.chars[idx];
+  const isGm=currentUser?.role==='gm';
+  const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
+  const canManage=isGm||isOwnProfile;
+
+  const playerItems=DB.items
+    .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name&&(a.charName===c.name||!a.charName)))
+    .map(it=>{
+      const award=it.awardedTo.find(a=>a.player===p.name&&(a.charName===c.name||!a.charName));
+      return {item:it,qty:award.qty};
+    });
+
+  document.getElementById('cd-name').textContent=c.name;
+  document.getElementById('cd-content').innerHTML=`
+    <div class="char-card ${c.verified?'':'char-pending'}">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+        ${c.img?`<img src="${c.img}" style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0">`:''}
+        <div>
+          <div class="char-name" style="font-size:18px">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge">⏳ На проверке</span>'}</div>
+          <div class="char-meta" style="font-size:13px;margin-top:4px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+        </div>
+      </div>
+
+      <div class="char-stats">
+        <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
+        <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
+        <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
+        <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
+        <div><span class="cs-l">ОС этап 4</span><span class="cs-v">${normalizeOs(c.os)[3]}</span></div>
+        <div><span class="cs-l">Создан</span><span class="cs-v">${c.createdAt||'—'}</span></div>
+      </div>
+
+      ${c.rep&&c.rep.length?`
+        <div class="char-rep">
+          <div class="cs-l" style="margin-bottom:6px">Репутация</div>
+          ${c.rep.map(r=>`
+            <div class="rep-chip">
+              <span class="rep-fac">${r.fac}</span>
+              <span class="rep-val ${r.val<0?'neg':''}">${r.val>0?'+':''}${r.val}</span>
+              ${r.note?`<span class="rep-note">${r.note}</span>`:''}
+            </div>
+          `).join('')}
+        </div>
+      `:''}
+
+      ${c.desc?`<div class="char-desc"><div class="cs-l" style="margin-bottom:4px">Описание</div>${c.desc}</div>`:''}
+
+      <div class="char-inv">
+        <div class="cs-l" style="margin-bottom:8px">Предметы (${playerItems.reduce((s,pi)=>s+pi.qty,0)} шт.)</div>
+        ${playerItems.length?`
+          <div class="inv-grid">
+            ${playerItems.map(pi=>`
+              <div class="inv-item r-${pi.item.rarity||'none'}" title="${(pi.item.desc||'').replace(/"/g,'&quot;')}" onclick="openItemDetail(${pi.item.id})">
+                <div class="inv-ic">${pi.item.img?`<img src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'">`:`<span>${emo(pi.item.type)}</span>`}</div>
+                <div class="inv-info">
+                  <div class="inv-name">${pi.item.name}</div>
+                  <div class="inv-meta">
+                    <span class="rb-sm r-${pi.item.rarity||'none'}">${RARITY[pi.item.rarity]||'—'}</span>
+                    <span class="inv-qty">×${pi.qty}</span>
+                  </div>
+                  <div class="inv-type">${pi.item.type||'—'}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `:'<div style="font-size:12px;color:var(--txt-m);font-style:italic">Предметов пока нет</div>'}
+      </div>
+
+      ${canManage?`
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-g" onclick="closeModal('m-char-detail');toggleEditChar(${idx})">✎ Изменить</button>
+          <button class="btn btn-x" onclick="closeModal('m-char-detail');deleteChar(${idx})">✕ Удалить</button>
+        </div>
+      `:''}
+    </div>
+  `;
+
+  openModal('m-char-detail');
 }
 
 function toggleEditChar(idx){

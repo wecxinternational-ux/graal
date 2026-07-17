@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
 
   if (req.method === 'POST') {
     if (!await authenticateToken(req, res)) return;
-    const {player, desc, cost, status, type} = req.body;
+    const {player, desc, cost, status, type, category} = req.body;
 
     // Игроки могут создавать только текстовые запросы (type='request').
     // Полноценные транзакции (с очками) создаёт только ГМ.
@@ -29,27 +29,27 @@ module.exports = async (req, res) => {
       // Запрос создаётся от имени текущего пользователя
       const playerName = req.user?.role === 'gm' ? (player || req.user.username) : req.user.username;
       const result = await db.execute({
-        sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
-        args: [playerName, desc.trim(), cost || 0, 'pending', 'request']
+        sql: 'INSERT INTO transactions (player, "desc", cost, status, type, category) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [playerName, desc.trim(), cost || 0, 'pending', 'request', category || 'other']
       });
-      return res.json({ id: Number(result.lastInsertRowid), player: playerName, desc: desc.trim(), cost: cost || 0, status: 'pending', type: 'request' });
+      return res.json({ id: Number(result.lastInsertRowid), player: playerName, desc: desc.trim(), cost: cost || 0, status: 'pending', type: 'request', category: category || 'other' });
     }
 
     // Обычная транзакция от ГМ
     const result = await db.execute({
-      sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
-      args: [player, desc, cost, status || 'pending', 'transaction']
+      sql: 'INSERT INTO transactions (player, "desc", cost, status, type, category) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [player, desc, cost, status || 'pending', 'transaction', category || 'other']
     });
-    return res.json({ id: Number(result.lastInsertRowid), player, desc, cost, status: status || 'pending', type: 'transaction' });
+    return res.json({ id: Number(result.lastInsertRowid), player, desc, cost, status: status || 'pending', type: 'transaction', category: category || 'other' });
   }
 
   if (req.method === 'PUT') {
     if (!await requireGm(req, res)) return;
     const { id } = req.query;
-    const {player, desc, cost, status, type} = req.body;
+    const {player, desc, cost, status, type, category} = req.body;
     await db.execute({
-      sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=?, type=? WHERE id=?',
-      args: [player, desc, cost, status, type || 'transaction', id]
+      sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=?, type=?, category=? WHERE id=?',
+      args: [player, desc, cost, status, type || 'transaction', category || 'other', id]
     });
     return res.json({ success: true });
   }

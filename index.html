@@ -247,8 +247,27 @@
       </div>
     </div>
     <div class="gmc">
+      <div class="gmc-ic">🎒</div>
+      <h3>Слоты персонажей</h3><p>Увеличить/уменьшить количество слотов для игрока</p>
+      <div class="gf">
+        <div class="fg"><label>Игрок</label><select class="sel" id="gm-slots-player"></select></div>
+        <div class="fg"><label>Кол-во слотов</label><input class="inp" type="number" id="gm-slots-amt" placeholder="+1" min="-10" max="10"></div>
+        <button class="btn btn-p" onclick="gmChangeSlots()">Изменить слоты</button>
+      </div>
+    </div>
+    <div class="gmc">
       <div class="gmc-ic">🔑</div>
       <h3>Транзакции</h3><p>Подтверждение покупок за поинты</p>
+      <div style="margin-bottom:10px">
+        <select class="sel" id="tx-category-f" onchange="renderTx()" style="width:100%">
+          <option value="">Все категории</option>
+          <option value="item">Предмет</option>
+          <option value="quest">Квест</option>
+          <option value="reputation">Репутация</option>
+          <option value="points">Поинты/ОС</option>
+          <option value="other">Другое</option>
+        </select>
+      </div>
       <div class="txl" id="tx-list"></div>
     </div>
     <div class="gmc">
@@ -435,7 +454,7 @@
         </div>
         <div class="fg"><label>Этап</label>
           <select class="sel" id="ni-stg" style="width:100%">
-            <option value="1">I (1+)</option><option value="2">II (5+)</option>
+            <option value="0">Без этапа</option><option value="1">I (1+)</option><option value="2">II (5+)</option>
             <option value="3">III (11+)</option><option value="4">IV (17+)</option>
           </select>
         </div>
@@ -462,17 +481,84 @@
   </div>
 </div>
 
+<!-- Edit Item -->
+<div class="mo" id="m-edit-item">
+  <div class="md">
+    <div class="mh"><h2>Редактировать предмет</h2><button class="mc-btn" onclick="closeModal('m-edit-item')">✕</button></div>
+    <div class="mb">
+      <div class="fg2">
+        <div class="fg fg-full"><label>Название</label><input class="inp" id="ei-name" placeholder="Оружие+1"></div>
+        <div class="fg"><label>Редкость</label>
+          <select class="sel" id="ei-rar" style="width:100%">
+            <option value="common">Обычный</option><option value="uncommon">Необычный</option>
+            <option value="rare">Редкий</option><option value="very_rare">Очень редкий</option>
+            <option value="legendary">Легендарный</option><option value="artifact">Артефакт</option>
+            <option value="none">Без редкости</option><option value="varies">Варьируется</option>
+          </select>
+        </div>
+        <div class="fg"><label>Тип</label><input class="inp" id="ei-type" placeholder="Оружие, Доспех…"></div>
+        <div class="fg"><label>Настройка</label>
+          <select class="sel" id="ei-att" style="width:100%">
+            <option value="no">Не требуется</option><option value="yes">Требуется</option><option value="other">Особая</option>
+          </select>
+        </div>
+        <div class="fg"><label>Этап</label>
+          <select class="sel" id="ei-stg" style="width:100%">
+            <option value="0">Без этапа</option><option value="1">I (1+)</option><option value="2">II (5+)</option>
+            <option value="3">III (11+)</option><option value="4">IV (17+)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Цена (ОС)</label><input class="inp" type="number" id="ei-price" placeholder="0" min="0"></div>
+        <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ei-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
+        <div class="fg"><label>Автор</label><input class="inp" id="ei-author" placeholder="Мастер…"></div>
+        <div class="fg fg-full">
+          <label>Изображение</label>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input class="inp" id="ei-img" placeholder="https://… или загрузите файл">
+            <div class="fdz" id="ei-fdz" onclick="document.getElementById('ei-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ei')">
+              <input type="file" id="ei-file-inp" accept="image/*" onchange="handleFiles(event,'ei')">
+              <div id="ei-img-preview" style="display:none;margin-bottom:8px"><img id="ei-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              <div id="ei-current-img" style="display:none;margin-bottom:8px"><img id="ei-current-img-el" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              Перетащите изображение или нажмите для загрузки
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeModal('m-edit-item')">Отмена</button>
+      <button class="btn btn-p" onclick="saveItem()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <!-- Item Detail -->
 <div class="mo" id="m-item-detail">
   <div class="md">
     <div class="mh"><h2 id="det-title">Предмет</h2><button class="mc-btn" onclick="closeModal('m-item-detail')">✕</button></div>
     <div class="mb" id="det-body"></div>
-    <div class="mf">
-      <select class="sel" id="aw-player" style="flex:1;min-width:0"></select>
+    <div class="mf" style="flex-wrap:wrap">
+      <select class="sel" id="aw-player" style="flex:1;min-width:120px" onchange="updateCharSelect()"></select>
+      <select class="sel" id="aw-char" style="flex:1;min-width:120px"></select>
       <input class="inp" type="number" id="aw-qty" value="1" min="1" style="width:64px;flex-shrink:0">
       <button class="btn btn-p" style="flex-shrink:0" onclick="awardItem()">Выдать</button>
       <button class="btn btn-x" style="flex-shrink:0" onclick="revokeItem()">Изъять</button>
       <button class="btn btn-d gm-only" style="flex-shrink:0" onclick="deleteItem()">🗑 Удалить</button>
+      <button class="btn btn-g gm-only" style="flex-shrink:0" onclick="openEditItem()">✎ Редактировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm award modal -->
+<div class="mo" id="m-confirm-award">
+  <div class="md" style="max-width:420px">
+    <div class="mh"><h2>Подтверждение выдачи</h2><button class="mc-btn" onclick="closeModal('m-confirm-award')">✕</button></div>
+    <div class="mb">
+      <p id="confirm-award-text" style="font-size:14px;color:var(--txt);line-height:1.6"></p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-g" onclick="closeModal('m-confirm-award')">Нет</button>
+      <button class="btn btn-p" onclick="confirmAwardItem()">Да</button>
     </div>
   </div>
 </div>
@@ -585,10 +671,27 @@
 <div class="mo" id="m-player-detail">
   <div class="md" style="max-width:680px">
     <div class="mh">
-      <h2 id="pd-name">Игрок</h2>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="pd-avatar" style="width:48px;height:48px;border-radius:50%;background:var(--bg-h);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden">👤</div>
+        <h2 id="pd-name">Игрок</h2>
+      </div>
       <button class="mc-btn" onclick="closeModal('m-player-detail')">✕</button>
     </div>
     <div class="mb">
+      <div id="pd-avatar-edit" style="display:none;margin-bottom:14px">
+        <div class="fg">
+          <label>Аватар</label>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input class="inp" id="pd-avatar-url" placeholder="https://…">
+            <div class="fdz" id="pd-fdz" onclick="document.getElementById('pd-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'pd')">
+              <input type="file" id="pd-file-inp" accept="image/*" onchange="handleFiles(event,'pd')">
+              <div id="pd-img-preview" style="display:none;margin-bottom:8px"><img id="pd-img-preview-img" style="max-width:120px;max-height:120px;border-radius:8px"></div>
+              Перетащите изображение или нажмите для загрузки
+            </div>
+            <button class="btn btn-g" onclick="savePlayerAvatar()">Сохранить аватар</button>
+          </div>
+        </div>
+      </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 14px;background:var(--bg-e);border-radius:var(--r);margin-bottom:14px;font-size:13px">
         <div><span style="color:var(--txt-m)">Discord:</span> <strong id="pd-discord">—</strong></div>
         <div><span style="color:var(--txt-m)">Поинты:</span> <strong id="pd-points" style="color:var(--gold)">0 pts</strong></div>
@@ -606,6 +709,17 @@
   </div>
 </div>
 
+<!-- Character detail modal -->
+<div class="mo" id="m-char-detail">
+  <div class="md" style="max-width:560px">
+    <div class="mh">
+      <h2 id="cd-name">Персонаж</h2>
+      <button class="mc-btn" onclick="closeModal('m-char-detail')">✕</button>
+    </div>
+    <div class="mb" id="cd-content"></div>
+  </div>
+</div>
+
 <!-- Request to GM modal -->
 <div class="mo" id="m-request">
   <div class="md" style="max-width:520px">
@@ -615,6 +729,16 @@
     </div>
     <div class="mb">
       <p style="font-size:12px;color:var(--txt-m);margin-bottom:10px">Опишите ваш запрос — он появится у ГМа в разделе «Транзакции».</p>
+      <div class="fg">
+        <label>Категория запроса</label>
+        <select id="req-category" class="sel">
+          <option value="item">Предмет</option>
+          <option value="quest">Квест</option>
+          <option value="reputation">Репутация</option>
+          <option value="points">Поинты/ОС</option>
+          <option value="other">Другое</option>
+        </select>
+      </div>
       <div class="fg">
         <label>Текст запроса</label>
         <textarea id="req-text" class="inp" rows="5" placeholder="Например: прошу выдать предмет X за квест Y, или: прошу подтвердить завершение квеста..." style="resize:vertical;font-family:inherit"></textarea>

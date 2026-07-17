@@ -477,6 +477,9 @@ input[type=number].inp{-moz-appearance:textfield;appearance:textfield}
 .sr{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--txt-m)}
 .sr strong{color:var(--txt-s);font-weight:500}
 .id-desc{font-size:13px;color:var(--txt-s);line-height:1.7;border-top:1px solid var(--bdr);padding-top:13px;margin-top:4px}
+.id-desc p{margin:0 0 10px 0;text-align:justify;text-indent:18px}
+.id-desc p:last-child{margin-bottom:0}
+.id-desc br{display:block;content:"";margin:4px 0}
 /* awarded list in detail */
 .aw-list{margin-top:10px;display:flex;flex-direction:column;gap:5px}
 .aw-li{display:flex;align-items:center;justify-content:space-between;background:var(--bg-h);border:1px solid var(--bdr);border-radius:7px;padding:6px 10px}
@@ -559,6 +562,10 @@ body.role-player .nav-sec.gm-only{display:none}
 .char-details{margin-top:12px;padding-top:12px;border-top:1px dashed var(--bdr);animation:fadeDown .2s ease}
 @keyframes fadeDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .char-inv{margin-top:14px}
+
+/* ── Character detail modal ── */
+#m-char-detail .md{max-height:85vh;overflow-y:auto}
+#m-char-detail .char-card{padding:0;border:none;background:transparent}
 .inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
 .inv-item{display:flex;gap:10px;align-items:center;padding:8px 10px;background:var(--bg-h);border-radius:8px;border-left:3px solid var(--bdr);cursor:pointer;transition:transform .15s,box-shadow .15s}
 .inv-item:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.25)}

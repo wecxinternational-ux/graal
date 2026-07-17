@@ -84,7 +84,8 @@ const SCHEMA_STATEMENTS = [
     "desc" TEXT,
     cost INTEGER,
     status TEXT DEFAULT 'pending',
-    type TEXT DEFAULT 'transaction'
+    type TEXT DEFAULT 'transaction',
+    category TEXT DEFAULT 'other'
   )`,
   `CREATE TABLE IF NOT EXISTS gm_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,6 +208,15 @@ function ensureInit() {
         }
       } catch (e) {
         console.error('transactions migration failed (ignored): ' + e.message);
+      }
+      // Миграция: добавляем колонку category в transactions
+      try {
+        const cols = (await db.execute('PRAGMA table_info(transactions)')).rows;
+        if (cols.length && !cols.some(c => c.name === 'category')) {
+          await db.execute("ALTER TABLE transactions ADD COLUMN category TEXT DEFAULT 'other'");
+        }
+      } catch (e) {
+        console.error('transactions category migration failed (ignored): ' + e.message);
       }
       // Миграция: добавляем колонку parentId в guides (для подруководств)
       try {

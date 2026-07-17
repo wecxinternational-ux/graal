@@ -97,7 +97,8 @@ const SCHEMA = `
     "desc" TEXT,
     cost INTEGER,
     status TEXT DEFAULT 'pending',
-    type TEXT DEFAULT 'transaction'
+    type TEXT DEFAULT 'transaction',
+    category TEXT DEFAULT 'other'
   );
   CREATE TABLE IF NOT EXISTS gm_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
