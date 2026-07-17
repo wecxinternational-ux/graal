@@ -2296,7 +2296,7 @@ function openPlayerDetail(pid){
             <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${i}" value="${normalizeOs(c.os)[1]}"></div>
             <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
             <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
-            <div class="fg fg-full"><label>Табло (открытый контент)</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Например: Ищу группу на квест X, или: Продаю предмет Y...">${c.desc||''}</textarea></div>
+            <div class="fg fg-full"><label>Табло (открытый контент)</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Рассы и подклассы, предыстория, цели и амбиции, особенности персонажа...">${c.desc||''}</textarea></div>
             <div class="fg fg-full">
               <label>Аватар персонажа</label>
               <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
