@@ -11,8 +11,8 @@ const PORT = 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'graal_secret_key_2024';
 
 app.use(cors());
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.json({ limit: '30mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '30mb' }));
 app.use(express.static(path.join(__dirname, '..')));
 
 // Middleware для проверки JWT токена
@@ -404,14 +404,19 @@ app.post('/api/players', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/players', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  const {name, discord, points, slots, chars, img} = req.body;
-  await db.execute({
-    sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
-          WHERE id=?`,
-    args: [name, discord, points, slots, JSON.stringify(chars), img, id]
-  });
-  res.json({ success: true });
+  try {
+    const {id} = req.query;
+    const {name, discord, points, slots, chars, img} = req.body;
+    await db.execute({
+      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
+            WHERE id=?`,
+      args: [name, discord, points, slots, JSON.stringify(chars), img, id]
+    });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('PUT /api/players error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.delete('/api/players', authenticateToken, requireGm, async (req, res) => {

@@ -1538,7 +1538,11 @@ async function gmGivePoints(){
   const p=DB.players.find(x=>x.name===pname);if(p)p.points+=amt;
   await apiRequest('/players', {
     method: 'PUT',
-    body: JSON.stringify(p)
+    body: JSON.stringify({
+      name:p.name, discord:p.discord,
+      points:p.points, slots:p.slots,
+      chars:p.chars, img:p.img || null
+    })
   }, { id: p.id });
   await addLog('award','💎',`<span class="li-pl">${pname}</span> получил <strong>+${amt} поинтов</strong>. Причина: ${reason||'—'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${pname} +${amt} поинтов`,'ok');
@@ -1555,7 +1559,11 @@ async function gmChangeSlots(){
   if(p.slots<1)p.slots=1;
   await apiRequest('/players', {
     method: 'PUT',
-    body: JSON.stringify(p)
+    body: JSON.stringify({
+      name:p.name, discord:p.discord,
+      points:p.points, slots:p.slots,
+      chars:p.chars, img:p.img || null
+    })
   }, { id: p.id });
   await addLog('slots','🎒',`<span class="li-pl">${pname}</span> слоты: ${(p.slots-amt)||1} → ${p.slots}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${pname}: ${(p.slots-amt)||1} → ${p.slots} слотов`,'ok');
@@ -1605,7 +1613,11 @@ async function gmApplyKt(){
   }
   await apiRequest('/players', {
     method: 'PUT',
-    body: JSON.stringify(p)
+    body: JSON.stringify({
+      name:p.name, discord:p.discord,
+      points:p.points, slots:p.slots,
+      chars:p.chars, img:p.img || null
+    })
   }, { id: p.id });
 
   // Логируем
@@ -1647,7 +1659,11 @@ async function gmCertify(status){
   
   await apiRequest('/players', {
     method: 'PUT',
-    body: JSON.stringify(p)
+    body: JSON.stringify({
+      name:p.name, discord:p.discord,
+      points:p.points, slots:p.slots,
+      chars:p.chars, img:p.img || null
+    })
   }, { id: p.id });
   await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
   toast(`${cname} ${status?'заверен':'разаверен'}. ${!status?'Слот освобожден':''}`,'ok');
@@ -2364,7 +2380,11 @@ async function savePlayerAvatar(){
   try{
     await apiRequest('/players',{
       method:'PUT',
-      body:JSON.stringify(p)
+      body:JSON.stringify({
+        name:p.name, discord:p.discord,
+        points:p.points, slots:p.slots,
+        chars:p.chars, img:p.img || null
+      })
     },{id:p.id});
     toast('Аватар сохранён','ok');
     openPlayerDetail(currentPlayerId);
@@ -2510,7 +2530,11 @@ async function saveChar(idx){
   try{
     await apiRequest('/players',{
       method:'PUT',
-      body:JSON.stringify(p)
+      body:JSON.stringify({
+        name:p.name, discord:p.discord,
+        points:p.points, slots:p.slots,
+        chars:p.chars, img:p.img || null
+      })
     },{id:p.id});
     toast('Персонаж сохранён','ok');
     openPlayerDetail(currentPlayerId); // ре-рендер
@@ -2529,7 +2553,11 @@ async function deleteChar(idx){
   try{
     await apiRequest('/players',{
       method:'PUT',
-      body:JSON.stringify(p)
+      body:JSON.stringify({
+        name:p.name, discord:p.discord,
+        points:p.points, slots:p.slots,
+        chars:p.chars, img:p.img || null
+      })
     },{id:p.id});
     toast(`Персонаж «${name}» удалён`,'ok');
     openPlayerDetail(currentPlayerId);
@@ -2622,7 +2650,7 @@ async function createCharacter(){
         name:me.name, discord:me.discord,
         points:me.points, slots:me.slots,
         chars:me.chars,
-        img:me.img
+        img:me.img || null
       })
     },{id:me.id});
 

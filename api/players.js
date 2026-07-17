@@ -2,6 +2,18 @@ const { db, parseJSON, requireGm, authenticateToken, ensureInitSafe } = require(
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
+  
+  if (req.method === 'POST' || req.method === 'PUT') {
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid JSON body' });
+      }
+    } else if (!req.body) {
+      return res.status(400).json({ error: 'Missing request body' });
+    }
+  }
 
   if (req.method === 'GET') {
     const players = (await db.execute('SELECT * FROM players ORDER BY id DESC')).rows;
@@ -35,12 +47,17 @@ module.exports = async (req, res) => {
       }
     }
     const {name, discord, points, slots, chars, img} = req.body;
-    await db.execute({
-      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
-            WHERE id=?`,
-      args: [name, discord, points, slots, JSON.stringify(chars), img, id]
-    });
-    return res.json({ success: true });
+    try {
+      await db.execute({
+        sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
+              WHERE id=?`,
+        args: [name, discord, points, slots, JSON.stringify(chars), img, id]
+      });
+      return res.json({ success: true });
+    } catch (e) {
+      console.error('PUT /api/players error:', e.message);
+      return res.status(500).json({ error: e.message });
+    }
   }
 
   // DELETE — только ГМ может удалять профили игроков
