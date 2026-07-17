@@ -2115,6 +2115,18 @@ function closeDrilldown(){
 }
 
 /* Render players (placeholder) */
+function toggleCharsMore(pid){
+  const moreDiv=document.getElementById(`chars-more-${pid}`);
+  const toggleBtn=document.getElementById(`chars-toggle-${pid}`);
+  if(!moreDiv||!toggleBtn)return;
+  if(moreDiv.style.maxHeight==='400px'){
+    moreDiv.style.maxHeight='0';
+    toggleBtn.innerHTML='▾ Показать ещё';
+  }else{
+    moreDiv.style.maxHeight='400px';
+    toggleBtn.innerHTML='▴ Скрыть';
+  }
+}
 function renderPlayers(){
   const g=document.getElementById('players-grid');
   // Игрок видит только своего персонажа (по userId), ГМ видит всех
@@ -2139,16 +2151,32 @@ function renderPlayers(){
           <span style="font-size:11px;color:var(--txt-m)">${p.chars?.length||0} перс</span>
         </div>
         ${p.chars?.length ? `
-          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
-            ${p.chars.map(c=>`
-              <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
-                ${c.img?`<img src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
-                <div>
-                  <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
-                  <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+          <div style="margin-top:10px">
+            <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${p.chars[0].verified?1:.65};display:flex;align-items:center;gap:10px">
+              ${p.chars[0].img?`<img src="${p.chars[0].img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
+              <div>
+                <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                <div style="color:var(--txt-s);margin-top:2px">${p.chars[0].class||'—'}${p.chars[0].subclass?' · '+p.chars[0].subclass:''} · ур.${p.chars[0].level||1}</div>
+              </div>
+            </div>
+            ${p.chars.length>1 ? `
+              <div id="chars-more-${p.id}" style="max-height:0;overflow:hidden;transition:max-height .3s ease-out">
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+                  ${p.chars.slice(1).map(c=>`
+                    <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
+                      ${c.img?`<img src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
+                      <div>
+                        <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                        <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
+                      </div>
+                    </div>
+                  `).join('')}
                 </div>
               </div>
-            `).join('')}
+              <button class="btn btn-g" style="width:100%;margin-top:8px;font-size:12px;padding:6px" onclick="toggleCharsMore(${p.id})" id="chars-toggle-${p.id}">
+                ▾ Показать ещё ${p.chars.length-1}
+              </button>
+            ` : ''}
           </div>
         ` : '<div style="margin-top:10px;font-size:12px;color:var(--txt-m);font-style:italic">Нет персонажей</div>'}
       </div>
