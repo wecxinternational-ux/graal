@@ -374,11 +374,11 @@ async function renderTab(t){
 ══════════════ */
 function renderItems(){
   const q=(document.getElementById('item-q')?.value||'').toLowerCase();
-  const rarEls=document.querySelectorAll('#f-rar-group input:checked');
+  const rarEls=document.querySelectorAll('#ms-rar input:checked');
   const rars=[...rarEls].map(el=>el.value);
-  const stgEls=document.querySelectorAll('#f-stg-group input:checked');
+  const stgEls=document.querySelectorAll('#ms-stg input:checked');
   const stgs=[...stgEls].map(el=>el.value);
-  const attEls=document.querySelectorAll('#f-att-group input:checked');
+  const attEls=document.querySelectorAll('#ms-att input:checked');
   const atts=[...attEls].map(el=>el.value);
   const list=DB.items.filter(it=>{
     const mq=!q||it.name.toLowerCase().includes(q)||it.type.toLowerCase().includes(q);
@@ -409,7 +409,39 @@ function renderItems(){
 }
 function resetItemFilters(){
   const q=document.getElementById('item-q');if(q)q.value='';
-  document.querySelectorAll('#f-rar-group input, #f-stg-group input, #f-att-group input').forEach(el=>el.checked=false);
+  document.querySelectorAll('#ms-rar input, #ms-stg input, #ms-att input').forEach(el=>el.checked=false);
+  document.getElementById('ms-rar-value').textContent='Все';
+  document.getElementById('ms-stg-value').textContent='Все';
+  document.getElementById('ms-att-value').textContent='Все';
+  renderItems();
+}
+function toggleMultiSelect(id){
+  const dropdown=document.getElementById(id);
+  const trigger=document.getElementById(id+'-trigger');
+  if(!dropdown||!trigger)return;
+  dropdown.classList.toggle('open');
+  trigger.classList.toggle('active');
+  if(dropdown.classList.contains('open')){
+    document.addEventListener('click',function closeOutside(e){
+      if(!dropdown.contains(e.target)&&!trigger.contains(e.target)){
+        dropdown.classList.remove('open');
+        trigger.classList.remove('active');
+        document.removeEventListener('click',closeOutside);
+      }
+    });
+  }
+}
+function updateMultiSelect(dropdownId,valueId){
+  const dropdown=document.getElementById(dropdownId);
+  const valueEl=document.getElementById(valueId);
+  const checked=dropdown.querySelectorAll('input:checked');
+  const labels=[...checked].map(el=>{
+    const label=el.parentElement;
+    return label.textContent.trim();
+  });
+  if(labels.length===0)valueEl.textContent='Все';
+  else if(labels.length===1)valueEl.textContent=labels[0];
+  else valueEl.textContent=labels.length+' выбранно';
   renderItems();
 }
 

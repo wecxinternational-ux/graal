@@ -137,34 +137,47 @@
   </div>
   <div class="fb">
     <div class="sw-w"><span class="sw-ic">🔍</span><input class="inp" id="item-q" placeholder="Поиск по названию…" oninput="renderItems()"></div>
-    <div class="multi-filter">
-      <label class="mf-label">Редкость</label>
-      <div class="mf-options" id="f-rar-group">
-        <label class="mf-option"><input type="checkbox" value="common" onchange="renderItems()"> Обычный</label>
-        <label class="mf-option"><input type="checkbox" value="uncommon" onchange="renderItems()"> Необычный</label>
-        <label class="mf-option"><input type="checkbox" value="rare" onchange="renderItems()"> Редкий</label>
-        <label class="mf-option"><input type="checkbox" value="very_rare" onchange="renderItems()"> Очень редкий</label>
-        <label class="mf-option"><input type="checkbox" value="legendary" onchange="renderItems()"> Легендарный</label>
-        <label class="mf-option"><input type="checkbox" value="artifact" onchange="renderItems()"> Артефакт</label>
-        <label class="mf-option"><input type="checkbox" value="none" onchange="renderItems()"> Без редкости</label>
-        <label class="mf-option"><input type="checkbox" value="varies" onchange="renderItems()"> Варьируется</label>
+    <div class="msel">
+      <div class="msel-trigger" id="ms-rar-trigger" onclick="toggleMultiSelect('ms-rar')">
+        <span class="msel-label">Редкость</span>
+        <span class="msel-value" id="ms-rar-value">Все</span>
+        <span class="msel-arrow">▾</span>
+      </div>
+      <div class="msel-dropdown" id="ms-rar">
+        <label class="msel-option"><input type="checkbox" value="common" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Обычный</label>
+        <label class="msel-option"><input type="checkbox" value="uncommon" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Необычный</label>
+        <label class="msel-option"><input type="checkbox" value="rare" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Редкий</label>
+        <label class="msel-option"><input type="checkbox" value="very_rare" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Очень редкий</label>
+        <label class="msel-option"><input type="checkbox" value="legendary" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Легендарный</label>
+        <label class="msel-option"><input type="checkbox" value="artifact" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Артефакт</label>
+        <label class="msel-option"><input type="checkbox" value="none" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Без редкости</label>
+        <label class="msel-option"><input type="checkbox" value="varies" onchange="updateMultiSelect('ms-rar','ms-rar-value')"> Варьируется</label>
       </div>
     </div>
-    <div class="multi-filter">
-      <label class="mf-label">Этап</label>
-      <div class="mf-options" id="f-stg-group">
-        <label class="mf-option"><input type="checkbox" value="1" onchange="renderItems()"> I этап</label>
-        <label class="mf-option"><input type="checkbox" value="2" onchange="renderItems()"> II этап</label>
-        <label class="mf-option"><input type="checkbox" value="3" onchange="renderItems()"> III этап</label>
-        <label class="mf-option"><input type="checkbox" value="4" onchange="renderItems()"> IV этап</label>
+    <div class="msel">
+      <div class="msel-trigger" id="ms-stg-trigger" onclick="toggleMultiSelect('ms-stg')">
+        <span class="msel-label">Этап</span>
+        <span class="msel-value" id="ms-stg-value">Все</span>
+        <span class="msel-arrow">▾</span>
+      </div>
+      <div class="msel-dropdown" id="ms-stg">
+        <label class="msel-option"><input type="checkbox" value="0" onchange="updateMultiSelect('ms-stg','ms-stg-value')"> Без этапа</label>
+        <label class="msel-option"><input type="checkbox" value="1" onchange="updateMultiSelect('ms-stg','ms-stg-value')"> I этап</label>
+        <label class="msel-option"><input type="checkbox" value="2" onchange="updateMultiSelect('ms-stg','ms-stg-value')"> II этап</label>
+        <label class="msel-option"><input type="checkbox" value="3" onchange="updateMultiSelect('ms-stg','ms-stg-value')"> III этап</label>
+        <label class="msel-option"><input type="checkbox" value="4" onchange="updateMultiSelect('ms-stg','ms-stg-value')"> IV этап</label>
       </div>
     </div>
-    <div class="multi-filter">
-      <label class="mf-label">Настройка</label>
-      <div class="mf-options" id="f-att-group">
-        <label class="mf-option"><input type="checkbox" value="yes" onchange="renderItems()"> Требуется</label>
-        <label class="mf-option"><input type="checkbox" value="no" onchange="renderItems()"> Нет</label>
-        <label class="mf-option"><input type="checkbox" value="other" onchange="renderItems()"> Особая</label>
+    <div class="msel">
+      <div class="msel-trigger" id="ms-att-trigger" onclick="toggleMultiSelect('ms-att')">
+        <span class="msel-label">Настройка</span>
+        <span class="msel-value" id="ms-att-value">Все</span>
+        <span class="msel-arrow">▾</span>
+      </div>
+      <div class="msel-dropdown" id="ms-att">
+        <label class="msel-option"><input type="checkbox" value="yes" onchange="updateMultiSelect('ms-att','ms-att-value')"> Требуется</label>
+        <label class="msel-option"><input type="checkbox" value="no" onchange="updateMultiSelect('ms-att','ms-att-value')"> Нет</label>
+        <label class="msel-option"><input type="checkbox" value="other" onchange="updateMultiSelect('ms-att','ms-att-value')"> Особая</label>
       </div>
     </div>
     <button class="btn btn-g" onclick="resetItemFilters()">Сбросить</button>
