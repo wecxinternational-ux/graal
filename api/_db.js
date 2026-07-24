@@ -63,7 +63,8 @@ const SCHEMA_STATEMENTS = [
     slots INTEGER DEFAULT 1,
     chars TEXT DEFAULT '[]',
     userId INTEGER,
-    img TEXT
+    img TEXT,
+    board TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,6 +241,9 @@ function ensureInit() {
         const cols = (await db.execute('PRAGMA table_info(players)')).rows;
         if (cols.length && !cols.some(c => c.name === 'img')) {
           await db.execute('ALTER TABLE players ADD COLUMN img TEXT');
+        }
+        if (cols.length && !cols.some(c => c.name === 'board')) {
+          await db.execute('ALTER TABLE players ADD COLUMN board TEXT');
         }
       } catch (e) {
         console.error('players img migration failed (ignored): ' + e.message);

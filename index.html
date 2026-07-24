@@ -714,6 +714,21 @@
         <div><span style="color:var(--txt-m)">Слоты:</span> <strong id="pd-slots">0/1</strong></div>
         <div><span style="color:var(--txt-m)">Персы:</span> <strong id="pd-char-count">0</strong></div>
       </div>
+      <!-- Табло (открытый контент) игрока -->
+      <div id="pd-board-wrap" style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h3 style="font-family:var(--fd);font-size:14px;color:var(--txt-s);letter-spacing:.06em">ТАБЛО (ОТКРЫТЫЙ КОНТЕНТ)</h3>
+          <button class="btn btn-g" id="pd-board-edit-btn" style="padding:4px 10px;font-size:12px;display:none" onclick="toggleBoardEdit()">✎ Изменить</button>
+        </div>
+        <div id="pd-board-view" style="background:var(--bg-e);border-radius:var(--r);padding:12px 14px;font-size:13px;color:var(--txt-s);line-height:1.6;min-height:20px"></div>
+        <div id="pd-board-edit" style="display:none">
+          <textarea class="inp" id="pd-board-text" rows="4" placeholder="Рассы и подклассы, предыстория, цели и амбиции, особенности персонажа..." style="margin-bottom:8px"></textarea>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-p" onclick="savePlayerBoard()">Сохранить</button>
+            <button class="btn btn-g" onclick="cancelBoardEdit()">Отмена</button>
+          </div>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <h3 style="font-family:var(--fd);font-size:14px;color:var(--txt-s);letter-spacing:.06em">ПЕРСОНАЖИ</h3>
         <button class="btn btn-p" id="pd-add-char" style="padding:5px 12px;font-size:12px" onclick="closeModal('m-player-detail');openModal('m-new-char')">+ Создать</button>

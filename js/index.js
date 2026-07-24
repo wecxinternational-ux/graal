@@ -1649,7 +1649,7 @@ async function gmGivePoints(){
     body: JSON.stringify({
       name:p.name, discord:p.discord,
       points:p.points, slots:p.slots,
-      chars:p.chars, img:p.img || null
+      chars:p.chars, img:p.img || null, board:p.board||null
     })
   }, { id: p.id });
   await addLog('award','💎',`<span class="li-pl">${pname}</span> получил <strong>+${amt} поинтов</strong>. Причина: ${reason||'—'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
@@ -1670,7 +1670,7 @@ async function gmChangeSlots(){
     body: JSON.stringify({
       name:p.name, discord:p.discord,
       points:p.points, slots:p.slots,
-      chars:p.chars, img:p.img || null
+      chars:p.chars, img:p.img || null, board:p.board||null
     })
   }, { id: p.id });
   await addLog('slots','🎒',`<span class="li-pl">${pname}</span> слоты: ${(p.slots-amt)||1} → ${p.slots}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
@@ -1724,7 +1724,7 @@ async function gmApplyKt(){
     body: JSON.stringify({
       name:p.name, discord:p.discord,
       points:p.points, slots:p.slots,
-      chars:p.chars, img:p.img || null
+      chars:p.chars, img:p.img || null, board:p.board||null
     })
   }, { id: p.id });
 
@@ -1770,7 +1770,7 @@ async function gmCertify(status){
     body: JSON.stringify({
       name:p.name, discord:p.discord,
       points:p.points, slots:p.slots,
-      chars:p.chars, img:p.img || null
+      chars:p.chars, img:p.img || null, board:p.board||null
     })
   }, { id: p.id });
   await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
@@ -2337,6 +2337,16 @@ async function openPlayerDetail(pid){
   document.getElementById('pd-points').textContent=`${p.points||0} pts`;
   document.getElementById('pd-avatar-edit').style.display=isOwnProfile?'block':'none';
   document.getElementById('pd-avatar-url').value=p.img||'';
+  // Табло (открытый контент) игрока
+  const boardView=document.getElementById('pd-board-view');
+  const boardEditBtn=document.getElementById('pd-board-edit-btn');
+  boardEditBtn.style.display=isOwnProfile?'inline-flex':'none';
+  if(p.board){
+    boardView.innerHTML=formatDesc(p.board);
+    boardView.style.color='var(--txt-s)';
+  }else{
+    boardView.innerHTML=isOwnProfile?'<span style="color:var(--txt-m);font-style:italic">Нажмите «Изменить», чтобы добавить открытый контент</span>':'<span style="color:var(--txt-m);font-style:italic">Пусто</span>';
+  }
   const charCount=p.chars?.length||0;
   const usedSlots=p.chars?.filter(c=>c.verified).length||0;
   const totalSlots=p.slots||1;
@@ -2429,7 +2439,7 @@ async function openPlayerDetail(pid){
             <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${i}" value="${normalizeOs(c.os)[1]}"></div>
             <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
             <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
-            <div class="fg fg-full"><label>Табло (открытый контент)</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Рассы и подклассы, предыстория, цели и амбиции, особенности персонажа...">${c.desc||''}</textarea></div>
+            <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Особенности персонажа, привычки, черты характера...">${c.desc||''}</textarea></div>
             <div class="fg fg-full">
               <label>Аватар персонажа</label>
               <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
@@ -2503,12 +2513,44 @@ async function savePlayerAvatar(){
       body:JSON.stringify({
         name:p.name, discord:p.discord,
         points:p.points, slots:p.slots,
-        chars:p.chars, img:p.img || null
+        chars:p.chars, img:p.img || null, board:p.board||null
       })
     },{id:p.id});
     toast('Аватар сохранён','ok');
     openPlayerDetail(currentPlayerId);
     renderPlayers();
+  }catch(e){
+    toast(e.message||'Ошибка сохранения','er');
+  }
+}
+function toggleBoardEdit(){
+  const v=document.getElementById('pd-board-view');
+  const e=document.getElementById('pd-board-edit');
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p)return;
+  v.style.display='none';
+  e.style.display='block';
+  document.getElementById('pd-board-text').value=p.board||'';
+}
+function cancelBoardEdit(){
+  document.getElementById('pd-board-view').style.display='block';
+  document.getElementById('pd-board-edit').style.display='none';
+}
+async function savePlayerBoard(){
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  if(!p)return;
+  p.board=document.getElementById('pd-board-text').value.trim();
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify({
+        name:p.name, discord:p.discord,
+        points:p.points, slots:p.slots,
+        chars:p.chars, img:p.img||null, board:p.board||null
+      })
+    },{id:p.id});
+    toast('Табло сохранено','ok');
+    openPlayerDetail(currentPlayerId);
   }catch(e){
     toast(e.message||'Ошибка сохранения','er');
   }
@@ -2542,7 +2584,7 @@ function openCharDetail(idx){
 
       ${c.desc?`
         <div style="background:var(--bg-e);border-radius:var(--r);padding:12px 14px;margin-bottom:14px">
-          <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m);margin-bottom:6px">Табло</div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m);margin-bottom:6px">Описание</div>
           <div style="font-size:13px;color:var(--txt-s);line-height:1.6">${formatDesc(c.desc)}</div>
         </div>
       `:''}
@@ -2654,7 +2696,7 @@ async function saveChar(idx){
       body:JSON.stringify({
         name:p.name, discord:p.discord,
         points:p.points, slots:p.slots,
-        chars:p.chars, img:p.img || null
+        chars:p.chars, img:p.img || null, board:p.board||null
       })
     },{id:p.id});
     toast('Персонаж сохранён','ok');
@@ -2677,7 +2719,7 @@ async function deleteChar(idx){
       body:JSON.stringify({
         name:p.name, discord:p.discord,
         points:p.points, slots:p.slots,
-        chars:p.chars, img:p.img || null
+        chars:p.chars, img:p.img || null, board:p.board||null
       })
     },{id:p.id});
     toast(`Персонаж «${name}» удалён`,'ok');

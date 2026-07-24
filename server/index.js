@@ -396,7 +396,7 @@ app.get('/api/players', async (req, res) => {
     if (!p) return res.status(404).json({ error: 'Игрок не найден' });
     return res.json({ ...p, chars: parseJSON(p.chars, []) });
   }
-  const result = await db.execute('SELECT id, name, discord, points, slots, userId, img FROM players ORDER BY id DESC');
+  const result = await db.execute('SELECT id, name, discord, points, slots, userId, img, board FROM players ORDER BY id DESC');
   const players = [];
   for (const p of result.rows) {
     const charsRaw = (await db.execute({ sql: 'SELECT chars FROM players WHERE id=?', args: [p.id] })).rows[0]?.chars;
@@ -424,11 +424,11 @@ app.post('/api/players', authenticateToken, async (req, res) => {
 app.put('/api/players', authenticateToken, async (req, res) => {
   try {
     const {id} = req.query;
-    const {name, discord, points, slots, chars, img} = req.body;
+    const {name, discord, points, slots, chars, img, board} = req.body;
     await db.execute({
-      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
+      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?, board=?
             WHERE id=?`,
-      args: [name, discord, points, slots, JSON.stringify(chars), img, id]
+      args: [name, discord, points, slots, JSON.stringify(chars), img, board, id]
     });
     res.json({ success: true });
   } catch (e) {

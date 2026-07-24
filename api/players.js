@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       if (!p) return res.status(404).json({ error: 'Игрок не найден' });
       return res.json({ ...p, chars: parseJSON(p.chars, []) });
     }
-    const result = await db.execute('SELECT id, name, discord, points, slots, userId, img FROM players ORDER BY id DESC');
+    const result = await db.execute('SELECT id, name, discord, points, slots, userId, img, board FROM players ORDER BY id DESC');
     const players = [];
     for (const p of result.rows) {
       const charsRaw = (await db.execute({ sql: 'SELECT chars FROM players WHERE id=?', args: [p.id] })).rows[0]?.chars;
@@ -64,12 +64,12 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Можно редактировать только свой профиль' });
       }
     }
-    const {name, discord, points, slots, chars, img} = req.body;
+    const {name, discord, points, slots, chars, img, board} = req.body;
     try {
       await db.execute({
-        sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?
+        sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?, board=?
               WHERE id=?`,
-        args: [name, discord, points, slots, JSON.stringify(chars), img, id]
+        args: [name, discord, points, slots, JSON.stringify(chars), img, board, id]
       });
       return res.json({ success: true });
     } catch (e) {
