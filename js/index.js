@@ -95,6 +95,7 @@ async function fetchData() {
     loadedSections.add('factions');
     loadedSections.add('transactions');
     notifyResolvedRequests();
+    saveCache();
     return DB;
   } catch (e) {
     console.error('Failed to fetch data:', e);
@@ -104,8 +105,8 @@ async function fetchData() {
 // Ленивая подгрузка одной секции при первом заходе во вкладку.
 // Кешируем загруженные секции, чтобы не тянуть повторно.
 const loadedSections = new Set();
+// Фоновое обновление: показываем кеш сразу, в тянем свежее
 async function ensureSection(name) {
-  if (loadedSections.has(name)) return DB[name] || [];
   const endpoints = {
     notes: '/notes',
     guides: '/guides',
@@ -114,15 +115,34 @@ async function ensureSection(name) {
   };
   const ep = endpoints[name];
   if (!ep) return DB[name] || [];
+  // Если секция уже загружена — не перезапрашиваем
+  if (loadedSections.has(name)) return DB[name] || [];
   try {
     const data = await apiRequest(ep);
     DB[name] = data;
     loadedSections.add(name);
+    saveCache();
     return data;
   } catch (e) {
     console.error('Failed to fetch section ' + name + ':', e);
     return DB[name] || [];
   }
+}
+// Фоновое обновление секции без блокировки UI (тихо)
+async function refreshSection(name) {
+  const endpoints = {
+    notes: '/notes',
+    guides: '/guides',
+    logs: '/logs',
+    items: '/items'
+  };
+  const ep = endpoints[name];
+  if (!ep) return;
+  try {
+    const data = await apiRequest(ep);
+    DB[name] = data;
+    saveCache();
+  } catch (e) {/* тихо */}
 }
 // Принудительная перезагрузка секции (после создания/редактирования/удаления)
 async function reloadSection(name) {
@@ -141,6 +161,7 @@ async function reloadSection(name) {
     const data = await apiRequest(ep);
     DB[name] = data;
     loadedSections.add(name);
+    saveCache();
   } catch (e) {
     console.error('Failed to reload section ' + name + ':', e);
   }
@@ -373,6 +394,26 @@ let DB={
   transactions: [],
 };
 
+/* ── Cache (localStorage) ── */
+const CACHE_KEY='graal_cache_v1';
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      DB:{players:DB.players,factions:DB.factions,transactions:DB.transactions,
+          notes:DB.notes,guides:DB.guides,logs:DB.logs,items:DB.items},
+      ts:Date.now()
+    }));
+  }catch(e){/* quota exceeded — игнорируем */}
+}
+function loadCache(){
+  try{
+    const raw=localStorage.getItem(CACHE_KEY);
+    if(!raw)return null;
+    const c=JSON.parse(raw);
+    return c;
+  }catch(e){return null}
+}
+
 let currentItemId=null;
 let threadPostId=null;
 let threadType=null;
@@ -401,27 +442,31 @@ document.querySelectorAll('.nav-a').forEach(a=>{
 async function renderTab(t){
   // Ленивая подгрузка тяжёлых секций при заходе во вкладку
   const containerId = {notes:'notes-list',guide:'guide-list',logs:'log-feed',items:'items-grid',players:'players-grid'}[t];
-  // Показываем спиннер, пока догружаем секцию
-  const needLoad = (t==='notes'||t==='guide'||t==='logs'||t==='items') && !loadedSections.has(t==='guide'?'guides':t);
+  const secName = t==='guide'?'guides':t;
+  const hasCache = loadedSections.has(secName);
+  // Показываем спиннер, только если нет кеша и нужно грузить
+  const needLoad = (t==='notes'||t==='guide'||t==='logs'||t==='items') && !hasCache;
   if(needLoad && containerId){
     const el=document.getElementById(containerId);
     if(el)el.innerHTML='<div class="emp"><div class="emp-ic spin">⏳</div><h3>Загрузка…</h3></div>';
   }
   if(t==='notes'){
     await ensureSection('notes');
-    // Перестроить фильтр тегов с учётом загруженных данных (кастомные теги)
     buildTagsFilter('note-tags-filter',renderNotes,(DB.notes||[]).flatMap(n=>n.tags||[]));
     renderNotes();
+    // Фоновое обновление, если данные из кеша
+    if(hasCache) refreshSection('notes').then(()=>{buildTagsFilter('note-tags-filter',renderNotes,(DB.notes||[]).flatMap(n=>n.tags||[]));renderNotes()});
   }
   else if(t==='guide'){
     await ensureSection('guides');
     buildTagsFilter('guide-tags-filter',renderGuide,(DB.guides||[]).flatMap(g=>g.tags||[]));
     renderGuide();
+    if(hasCache) refreshSection('guides').then(()=>{buildTagsFilter('guide-tags-filter',renderGuide,(DB.guides||[]).flatMap(g=>g.tags||[]));renderGuide()});
   }
-  else if(t==='logs'){await ensureSection('logs');renderLogs()}
+  else if(t==='logs'){await ensureSection('logs');renderLogs();if(hasCache)refreshSection('logs').then(renderLogs)}
   else if(t==='players'){renderPlayers()}
   else if(t==='gm'){renderGm()}
-  else if(t==='items'){await ensureSection('items');renderItems();populatePlayerSelects()}
+  else if(t==='items'){await ensureSection('items');renderItems();populatePlayerSelects();if(hasCache)refreshSection('items').then(()=>{renderItems();populatePlayerSelects()})}
   // Обновляем статус активной вкладки для тулбара (мобильный)
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
 }
@@ -2796,6 +2841,19 @@ let pollTimer=null;
 async function initApp(){
   initNotes();
   initGuide();
+  // 1) Мгновенно восстанавливаем из кеша — UI появляется сразу
+  const cache=loadCache();
+  if(cache&&cache.DB){
+    DB={...DB,...cache.DB};
+    // Отмечаем какие секции уже есть в кеше (чтобы ensureSection не перезапрашивал)
+    if(cache.DB.notes){loadedSections.add('notes')}
+    if(cache.DB.guides){loadedSections.add('guides')}
+    if(cache.DB.logs){loadedSections.add('logs')}
+    if(cache.DB.items){loadedSections.add('items')}
+    loadedSections.add('players');loadedSections.add('factions');loadedSections.add('transactions');
+    renderTab('items');
+  }
+  // 2) Параллельно грузим свежие данные с сервера
   const data=await fetchData();
   if(data){
     renderTab('items');
