@@ -16,8 +16,26 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    const players = (await db.execute('SELECT * FROM players ORDER BY id DESC')).rows;
-    return res.json(players.map(p => ({...p, chars: parseJSON(p.chars, [])})));
+    const { id } = req.query;
+    if (id) {
+      const result = await db.execute({ sql: 'SELECT * FROM players WHERE id=?', args: [id] });
+      const p = result.rows[0];
+      if (!p) return res.status(404).json({ error: 'Игрок не найден' });
+      return res.json({ ...p, chars: parseJSON(p.chars, []) });
+    }
+    const result = await db.execute('SELECT id, name, discord, points, slots, userId, img FROM players ORDER BY id DESC');
+    const players = [];
+    for (const p of result.rows) {
+      const charsRaw = (await db.execute({ sql: 'SELECT chars FROM players WHERE id=?', args: [p.id] })).rows[0]?.chars;
+      const chars = parseJSON(charsRaw, []).map(c => ({
+        name: c.name, class: c.class, subclass: c.subclass,
+        level: c.level, verified: c.verified,
+        kt: c.kt, os: c.os, rep: c.rep, desc: c.desc,
+        createdAt: c.createdAt
+      }));
+      players.push({ ...p, chars });
+    }
+    return res.json(players);
   }
 
   if (req.method === 'POST') {

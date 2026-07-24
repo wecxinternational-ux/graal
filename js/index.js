@@ -2230,7 +2230,7 @@ function renderPlayers(){
         ${p.chars?.length ? `
           <div style="margin-top:10px">
             <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${p.chars[0].verified?1:.65};display:flex;align-items:center;gap:10px">
-              ${p.chars[0].img?`<img class="lz-img" data-src="${p.chars[0].img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
+              <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
               <div>
                 <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                 <div style="color:var(--txt-s);margin-top:2px">${p.chars[0].class||'—'}${p.chars[0].subclass?' · '+p.chars[0].subclass:''} · ур.${p.chars[0].level||1}</div>
@@ -2241,7 +2241,7 @@ function renderPlayers(){
                 <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
                   ${p.chars.slice(1).map(c=>`
                     <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
-                      ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
+                      <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
                       <div>
                         <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                         <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
@@ -2268,6 +2268,15 @@ async function openPlayerDetail(pid){
   const p=DB.players.find(x=>x.id===pid);
   if(!p){toast('Игрок не найден','er');return}
   currentPlayerId=pid;
+  // Подгружаем полные данные игрока (с картинками персонажей)
+  // только если у нас лёгкая версия (chars без всех полей)
+  try {
+    const full = await apiRequest('/players', {}, { id: pid });
+    if (full && full.chars) {
+      p.chars = full.chars;
+      p.img = full.img || p.img;
+    }
+  } catch(e) { console.warn('Failed to load full player data', e); }
   const isGm=currentUser?.role==='gm';
   const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
   const canManage=isGm||isOwnProfile;
