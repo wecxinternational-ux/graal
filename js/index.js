@@ -82,13 +82,20 @@ async function apiRequest(endpoint, options = {}, query = {}) {
 
 async function fetchData() {
   try {
-    // Первичная загрузка: только лёгкие секции, необходимые для каркаса.
-    // Тяжёлые (notes, guides с atts) грузятся по требованию при заходе во вкладку.
-    const data = await apiRequest('/data', {}, { sections: 'players,factions,items,transactions' });
-    // Сливаем с уже загруженными секциями, не затирая их
-    DB = { ...(DB || {}), ...data };
+    // Параллельная загрузка лёгких секций отдельными запросами.
+    // items загружается лениво при заходе во вкладку/профиль (тяжёлые base64-картинки).
+    const [players, factions, transactions] = await Promise.all([
+      apiRequest('/players').catch(() => []),
+      apiRequest('/factions').catch(() => []),
+      apiRequest('/transactions').catch(() => [])
+    ]);
+    DB = { ...(DB || {}), players, factions, transactions };
+    loadedSections.clear();
+    loadedSections.add('players');
+    loadedSections.add('factions');
+    loadedSections.add('transactions');
     notifyResolvedRequests();
-    return data;
+    return DB;
   } catch (e) {
     console.error('Failed to fetch data:', e);
   }
@@ -96,16 +103,22 @@ async function fetchData() {
 
 // Ленивая подгрузка одной секции при первом заходе во вкладку.
 // Кешируем загруженные секции, чтобы не тянуть повторно.
-const loadedSections = new Set(['players', 'factions', 'items', 'transactions']);
+const loadedSections = new Set();
 async function ensureSection(name) {
   if (loadedSections.has(name)) return DB[name] || [];
+  const endpoints = {
+    notes: '/notes',
+    guides: '/guides',
+    logs: '/logs',
+    items: '/items'
+  };
+  const ep = endpoints[name];
+  if (!ep) return DB[name] || [];
   try {
-    const data = await apiRequest('/data', {}, { sections: name });
-    if (data[name] !== undefined) {
-      DB[name] = data[name];
-      loadedSections.add(name);
-    }
-    return DB[name] || [];
+    const data = await apiRequest(ep);
+    DB[name] = data;
+    loadedSections.add(name);
+    return data;
   } catch (e) {
     console.error('Failed to fetch section ' + name + ':', e);
     return DB[name] || [];
@@ -113,12 +126,21 @@ async function ensureSection(name) {
 }
 // Принудительная перезагрузка секции (после создания/редактирования/удаления)
 async function reloadSection(name) {
+  const endpoints = {
+    notes: '/notes',
+    guides: '/guides',
+    logs: '/logs',
+    items: '/items',
+    players: '/players',
+    factions: '/factions',
+    transactions: '/transactions'
+  };
+  const ep = endpoints[name];
+  if (!ep) return;
   try {
-    const data = await apiRequest('/data', {}, { sections: name });
-    if (data[name] !== undefined) {
-      DB[name] = data[name];
-      loadedSections.add(name);
-    }
+    const data = await apiRequest(ep);
+    DB[name] = data;
+    loadedSections.add(name);
   } catch (e) {
     console.error('Failed to reload section ' + name + ':', e);
   }
@@ -380,7 +402,7 @@ async function renderTab(t){
   // Ленивая подгрузка тяжёлых секций при заходе во вкладку
   const containerId = {notes:'notes-list',guide:'guide-list',logs:'log-feed',items:'items-grid',players:'players-grid'}[t];
   // Показываем спиннер, пока догружаем секцию
-  const needLoad = (t==='notes'||t==='guide'||t==='logs') && !loadedSections.has(t==='guide'?'guides':t);
+  const needLoad = (t==='notes'||t==='guide'||t==='logs'||t==='items') && !loadedSections.has(t==='guide'?'guides':t);
   if(needLoad && containerId){
     const el=document.getElementById(containerId);
     if(el)el.innerHTML='<div class="emp"><div class="emp-ic spin">⏳</div><h3>Загрузка…</h3></div>';
@@ -399,7 +421,7 @@ async function renderTab(t){
   else if(t==='logs'){await ensureSection('logs');renderLogs()}
   else if(t==='players'){renderPlayers()}
   else if(t==='gm'){renderGm()}
-  else if(t==='items'){renderItems();populatePlayerSelects()}
+  else if(t==='items'){await ensureSection('items');renderItems();populatePlayerSelects()}
   // Обновляем статус активной вкладки для тулбара (мобильный)
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
 }
@@ -415,7 +437,7 @@ function renderItems(){
   const stgs=[...stgEls].map(el=>el.value);
   const attEls=document.querySelectorAll('#ms-att input:checked');
   const atts=[...attEls].map(el=>el.value);
-  const list=DB.items.filter(it=>{
+  const list=(DB.items||[]).filter(it=>{
     const mq=!q||it.name.toLowerCase().includes(q)||it.type.toLowerCase().includes(q);
     const mr=!rars.length||rars.includes(it.rarity);
     const ms=!stgs.length||stgs.includes(String(it.stage));
@@ -2021,9 +2043,9 @@ function renderStats(){
   const sg=document.getElementById('stats-grid');if(!sg)return;
   const logs=DB.logs;
   const byType=t=>logs.filter(l=>l.type===t).length;
-  const totalAwarded=DB.items.reduce((s,it)=>s+it.awardedTo.reduce((ss,a)=>ss+a.qty,0),0);
+  const totalAwarded=(DB.items||[]).reduce((s,it)=>s+it.awardedTo.reduce((ss,a)=>ss+a.qty,0),0);
   const stats=[
-    {val:DB.items.length,lbl:'Предметов в базе',sub:'уникальных записей',color:'var(--pur-b)',bar:Math.min(DB.items.length/50,1)},
+    {val:(DB.items||[]).length,lbl:'Предметов в базе',sub:'уникальных записей',color:'var(--pur-b)',bar:Math.min((DB.items||[]).length/50,1)},
     {val:totalAwarded,lbl:'Предметов выдано',sub:'суммарно игрокам',color:'var(--gold)',bar:Math.min(totalAwarded/100,1)},
     {val:byType('award'),lbl:'Начислений поинтов',sub:'событий в журнале',color:'#FBBF24',bar:Math.min(byType('award')/20,1)},
     {val:byType('level'),lbl:'Обновлений прогресса',sub:'КТ / ОС выдач',color:'var(--green)',bar:Math.min(byType('level')/20,1)},
@@ -2110,7 +2132,7 @@ function anRenderActivity(){
 
 /* Top items by awarded */
 function anRenderTopItems(){
-  const itemsWithCount=DB.items
+  const itemsWithCount=(DB.items||[])
     .map(it=>({...it,total:it.awardedTo.reduce((s,a)=>s+a.qty,0)}))
     .filter(it=>it.total>0)
     .sort((a,b)=>b.total-a.total)
@@ -2242,7 +2264,7 @@ function renderPlayers(){
 /* ── Player detail / character management ── */
 let currentPlayerId=null;
 
-function openPlayerDetail(pid){
+async function openPlayerDetail(pid){
   const p=DB.players.find(x=>x.id===pid);
   if(!p){toast('Игрок не найден','er');return}
   currentPlayerId=pid;
@@ -2273,7 +2295,8 @@ function openPlayerDetail(pid){
     charsList.innerHTML='<div style="text-align:center;padding:24px;color:var(--txt-m);font-size:13px">У игрока ещё нет персонажей</div>';
   }else{
     // Предметы, выданные этому игроку (привязка по имени игрока)
-    const playerItems=DB.items
+    await ensureSection('items');
+    const playerItems=(DB.items||[])
       .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name))
       .map(it=>{
         const award=it.awardedTo.find(a=>a.player===p.name);
@@ -2445,7 +2468,7 @@ function openCharDetail(idx){
   const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
   const canManage=isGm||isOwnProfile;
 
-  const playerItems=DB.items
+  const playerItems=(DB.items||[])
     .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name&&(a.charName===c.name||!a.charName)))
     .map(it=>{
       const award=it.awardedTo.find(a=>a.player===p.name&&(a.charName===c.name||!a.charName));
