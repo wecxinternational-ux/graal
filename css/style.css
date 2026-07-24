@@ -165,6 +165,9 @@ input[type=number].inp{-moz-appearance:textfield;appearance:textfield}
 .ic:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .ic-img{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--bg-s)}
 .ic-ph{width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,var(--bg-s),var(--bg-h));display:flex;align-items:center;justify-content:center;font-size:44px;opacity:.45}
+.lz-img{background:linear-gradient(90deg,var(--bg-s) 25%,var(--bg-h) 50%,var(--bg-s) 75%);background-size:200% 100%;animation:lz-shimmer 1.5s infinite}
+@keyframes lz-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.lz-img.lz-done{animation:none;background:transparent}
 .ic-bd{padding:13px}
 .rb{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-bottom:7px}
 .ic-n{font-family:var(--fd);font-size:13px;font-weight:600;margin-bottom:3px;line-height:1.3}

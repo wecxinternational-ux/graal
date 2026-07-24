@@ -16,6 +16,41 @@ function updateThemeBtn() {
 }
 updateThemeBtn();
 
+/* ── Lazy image loading ── */
+let _lazyObs = null;
+function initLazyImages(root = document) {
+  if (!('IntersectionObserver' in window)) {
+    root.querySelectorAll('.lz-img').forEach(el => loadLazyImg(el));
+    return;
+  }
+  if (!_lazyObs) {
+    _lazyObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          loadLazyImg(e.target);
+          _lazyObs.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: '150px', threshold: 0.01 });
+  }
+  root.querySelectorAll('.lz-img:not(.lz-done)').forEach(el => _lazyObs.observe(el));
+}
+function loadLazyImg(el) {
+  const src = el.getAttribute('data-src');
+  if (!src) return;
+  const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+  if (!img) return;
+  img.onload = () => { el.classList.add('lz-done'); img.style.opacity = '1'; };
+  img.onerror = () => { el.classList.add('lz-done'); img.style.opacity = '1'; };
+  img.src = src;
+  img.style.opacity = '0';
+  img.style.transition = 'opacity .25s ease';
+}
+function lzImg(src, attrs = '') {
+  if (!src) return '';
+  return `<img class="lz-img" data-src="${src}" ${attrs} loading="lazy" style="opacity:0;transition:opacity .25s ease">`;
+}
+
 /* ── API helpers ── */
 const API_BASE = '/api';
 let authToken = localStorage.getItem('authToken');
@@ -393,7 +428,7 @@ function renderItems(){
     const awarded=it.awardedTo.reduce((s,a)=>s+a.qty,0);
     return `
     <div class="card ic" onclick="openItemDetail(${it.id})">
-      ${it.img?`<img class="ic-img" src="${it.img}" alt="${it.name}" onerror="this.style.display='none'">`:`<div class="ic-ph">${emo(it.type)}</div>`}
+      ${it.img?`<img class="ic-img lz-img" data-src="${it.img}" alt="${it.name}" onerror="this.style.display='none'" style="opacity:0;transition:opacity .25s ease">`:`<div class="ic-ph">${emo(it.type)}</div>`}
       <span class="stg">${STAGES[it.stage]}</span>
       <div class="ic-bd">
         <div class="rb r-${it.rarity}">${RARITY[it.rarity]}</div>
@@ -406,6 +441,7 @@ function renderItems(){
       </div>
     </div>`
   }).join('');
+  initLazyImages(g);
 }
 function resetItemFilters(){
   const q=document.getElementById('item-q');if(q)q.value='';
@@ -559,7 +595,7 @@ function openItemDetail(id){
     </div>`).join('')}</div>`:'<p style="font-size:12px;color:var(--txt-m);margin-top:6px">Ещё никому не выдан</p>';
   document.getElementById('det-body').innerHTML=`
     <div class="id-hd">
-      ${it.img?`<img class="id-img" src="${it.img}" onerror="this.outerHTML='<div class=id-img style=font-size:38px;display:flex;align-items:center;justify-content:center>${emo(it.type)}</div>'">`:`<div class="id-img" style="font-size:38px;display:flex;align-items:center;justify-content:center">${emo(it.type)}</div>`}
+      ${it.img?`<img class="id-img lz-img" data-src="${it.img}" onerror="this.outerHTML='<div class=id-img style=font-size:38px;display:flex;align-items:center;justify-content:center>${emo(it.type)}</div>'" style="opacity:0;transition:opacity .25s ease">`:`<div class="id-img" style="font-size:38px;display:flex;align-items:center;justify-content:center">${emo(it.type)}</div>`}
       <div class="id-meta">
         <div class="rb r-${it.rarity}">${RARITY[it.rarity]}</div>
         <div class="sr"><strong>Тип:</strong>${it.type}</div>
@@ -574,6 +610,7 @@ function openItemDetail(id){
     <div style="margin-top:12px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--txt-m)">Выдано игрокам</div>
     ${awdHtml}`;
   openModal('m-item-detail');
+  initLazyImages(document.getElementById('m-item-detail'));
 }
 function updateCharSelect(){
   const playerName=document.getElementById('aw-player').value;
@@ -864,6 +901,7 @@ function renderNotes(){
         <span class="post-meta">${n.author} · ${n.date}</span>
       </div>
     </div>`).join('');
+  initLazyImages(el);
 }
 async function saveNote(){
   const title=document.getElementById('nn-title').value.trim();
@@ -976,10 +1014,12 @@ function renderGuide(){
     const flat=DB.guides.filter(matchSearch);
     if(!flat.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Ничего не найдено</h3></div>';return}
     el.innerHTML=flat.map(renderGuideCard).join('');
+    initLazyImages(el);
     return;
   }
   if(!roots.length){el.innerHTML='<div class="emp"><div class="emp-ic">📖</div><h3>Нет записей</h3></div>';return}
   el.innerHTML=roots.map(renderGuideCard).join('');
+  initLazyImages(el);
 }
 function renderGuideCard(n){
   const kids=guideChildren(n.id);
@@ -1141,10 +1181,10 @@ function renderContent(html){
   // 1) Заменяем текстовые URL на изображения (не внутри тегов)
   //    Регэксп: http(s)://... с расширением картинки в конце, не окружёнными кавычками/скобками
   const imgUrlRe=/(^|[\s>])(https?:\/\/[^\s<"'\)]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif))(?=$|[\s<])/gi;
-  html=html.replace(imgUrlRe,(m,p1,url)=>`${p1}<img src="${url}" alt="" class="post-img" loading="lazy">`);
+  html=html.replace(imgUrlRe,(m,p1,url)=>`${p1}<img class="post-img lz-img" data-src="${url}" alt="" loading="lazy" style="opacity:0;transition:opacity .25s ease">`);
   // 2) Заменяем <a href="image-url">текст</a> на <img>
   const aImgRe=/<a[^>]+href=["'](https?:\/\/[^\s"'<>]+\.(?:png|jpe?g|gif|webp|svg|bmp|avif))["'][^>]*>([^<]*)<\/a>/gi;
-  html=html.replace(aImgRe,(m,url,text)=>`<img src="${url}" alt="${text||''}" class="post-img" loading="lazy">`);
+  html=html.replace(aImgRe,(m,url,text)=>`<img class="post-img lz-img" data-src="${url}" alt="${text||''}" loading="lazy" style="opacity:0;transition:opacity .25s ease">`);
   // 3) Добавляем target=_blank всем оставшимся ссылкам
   html=html.replace(/<a(?![^>]*target=)/gi,'<a target="_blank" rel="noopener"');
   return html;
@@ -1167,7 +1207,7 @@ function renderPreview(html,maxLen){
     .slice(0,len);
   const textHtml=text?(text+(html.length>len?'…':'')):'';
   if(!imgs.length)return textHtml;
-  return `<div class="prev-thumbs">${imgs.map(i=>i.replace('class="post-img"','class="prev-thumb"')).join('')}</div>${textHtml?`<div class="prev-text">${textHtml}</div>`:''}`;
+  return `<div class="prev-thumbs">${imgs.map(i=>i.replace(/class="post-img lz-img"/g,'class="prev-thumb lz-img"')).join('')}</div>${textHtml?`<div class="prev-text">${textHtml}</div>`:''}`;
 }
 function openThread(id,type){
   const db=type==='note'?DB.notes:DB.guides;
@@ -1194,7 +1234,7 @@ function openThread(id,type){
   const fileAtts=atts.filter(a=>!a.type||!a.type.startsWith('image/'));
   const imgsHtml=imgAtts.length?`<div class="att-imgs">${imgAtts.map((a,i)=>`
     <figure class="att-fig" onclick="previewAtt('${a.name}','${a.data}','${a.type}')">
-      <img src="${a.data}" alt="${a.name||''}" loading="lazy">
+      <img class="lz-img" data-src="${a.data}" alt="${a.name||''}" loading="lazy" style="opacity:0;transition:opacity .25s ease">
       <figcaption>${a.name||''}</figcaption>
     </figure>`).join('')}</div>`:'';
   const filesHtml=fileAtts.length?fileAtts.map(a=>`
@@ -1227,6 +1267,7 @@ function openThread(id,type){
     backBtn.style.display=showBack?'inline-flex':'none';
   }
   document.getElementById('thread-view').classList.add('on');
+  initLazyImages(document.getElementById('thread-view'));
 }
 
 function goBackGuide(){
@@ -2155,7 +2196,7 @@ function renderPlayers(){
   g.innerHTML=list.map(p=>`
     <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerDetail(${p.id})">
       ${isGm?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить игрока">✕</button>`:''}
-      <div class="ic-ph">${p.img?`<img src="${p.img}" style="width:100%;height:100%;object-fit:cover">`:'👤'}</div>
+      <div class="ic-ph">${p.img?`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`:'👤'}</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
         <div class="ic-ty">${p.discord||'—'}</div>
@@ -2167,7 +2208,7 @@ function renderPlayers(){
         ${p.chars?.length ? `
           <div style="margin-top:10px">
             <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${p.chars[0].verified?1:.65};display:flex;align-items:center;gap:10px">
-              ${p.chars[0].img?`<img src="${p.chars[0].img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
+              ${p.chars[0].img?`<img class="lz-img" data-src="${p.chars[0].img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
               <div>
                 <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                 <div style="color:var(--txt-s);margin-top:2px">${p.chars[0].class||'—'}${p.chars[0].subclass?' · '+p.chars[0].subclass:''} · ур.${p.chars[0].level||1}</div>
@@ -2178,7 +2219,7 @@ function renderPlayers(){
                 <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
                   ${p.chars.slice(1).map(c=>`
                     <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
-                      ${c.img?`<img src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}
+                      ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
                       <div>
                         <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                         <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
@@ -2195,6 +2236,7 @@ function renderPlayers(){
         ` : '<div style="margin-top:10px;font-size:12px;color:var(--txt-m);font-style:italic">Нет персонажей</div>'}
       </div>
     </div>`).join('');
+  initLazyImages(g);
 }
 
 /* ── Player detail / character management ── */
@@ -2210,7 +2252,7 @@ function openPlayerDetail(pid){
 
   const avatarEl=document.getElementById('pd-avatar');
   if(p.img){
-    avatarEl.innerHTML=`<img src="${p.img}" style="width:100%;height:100%;object-fit:cover">`;
+    avatarEl.innerHTML=`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`;
   }else{
     avatarEl.innerHTML='👤';
   }
@@ -2242,7 +2284,7 @@ function openPlayerDetail(pid){
       <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
         <div class="char-head" style="cursor:pointer" onclick="openCharDetail(${i})">
           <div style="display:flex;align-items:center;gap:12px">
-            ${c.img?`<img src="${c.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0">`:''}
+            ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
             <div>
               <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
               <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
@@ -2283,7 +2325,7 @@ function openPlayerDetail(pid){
               <div class="inv-grid">
                 ${playerItems.map(pi=>`
                   <div class="inv-item r-${pi.item.rarity||'none'}" title="${(pi.item.desc||'').replace(/"/g,'&quot;')}" onclick="openItemDetail(${pi.item.id})">
-                    <div class="inv-ic">${pi.item.img?`<img src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'">`:`<span>${emo(pi.item.type)}</span>`}</div>
+                    <div class="inv-ic">${pi.item.img?`<img class="lz-img" data-src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'" style="opacity:0;transition:opacity .25s ease">`:`<span>${emo(pi.item.type)}</span>`}</div>
                     <div class="inv-info">
                       <div class="inv-name">${pi.item.name}</div>
                       <div class="inv-meta">
@@ -2331,6 +2373,7 @@ function openPlayerDetail(pid){
   }
 
   openModal('m-player-detail');
+  initLazyImages(document.getElementById('m-player-detail'));
   renderPlayerRequests(p);
 }
 
@@ -2413,7 +2456,7 @@ function openCharDetail(idx){
   document.getElementById('cd-content').innerHTML=`
     <div class="char-card ${c.verified?'':'char-pending'}">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
-        ${c.img?`<img src="${c.img}" style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0">`:''}
+        ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
         <div>
           <div class="char-name" style="font-size:18px">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge">⏳ На проверке</span>'}</div>
           <div class="char-meta" style="font-size:13px;margin-top:4px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
@@ -2471,7 +2514,7 @@ function openCharDetail(idx){
           <div class="inv-grid">
             ${playerItems.map(pi=>`
               <div class="inv-item r-${pi.item.rarity||'none'}" title="${(pi.item.desc||'').replace(/"/g,'&quot;')}" onclick="openItemDetail(${pi.item.id})">
-                <div class="inv-ic">${pi.item.img?`<img src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'">`:`<span>${emo(pi.item.type)}</span>`}</div>
+                <div class="inv-ic">${pi.item.img?`<img class="lz-img" data-src="${pi.item.img}" onerror="this.outerHTML='${emo(pi.item.type)}'" style="opacity:0;transition:opacity .25s ease">`:`<span>${emo(pi.item.type)}</span>`}</div>
                 <div class="inv-info">
                   <div class="inv-name">${pi.item.name}</div>
                   <div class="inv-meta">
@@ -2496,6 +2539,7 @@ function openCharDetail(idx){
   `;
 
   openModal('m-char-detail');
+  initLazyImages(document.getElementById('m-char-detail'));
 }
 
 function toggleEditChar(idx){
