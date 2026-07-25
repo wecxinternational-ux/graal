@@ -2313,15 +2313,6 @@ async function openPlayerDetail(pid){
   const p=DB.players.find(x=>x.id===pid);
   if(!p){toast('Игрок не найден','er');return}
   currentPlayerId=pid;
-  // Подгружаем полные данные игрока (с картинками персонажей)
-  // только если у нас лёгкая версия (chars без всех полей)
-  try {
-    const full = await apiRequest('/players', {}, { id: pid });
-    if (full && full.chars) {
-      p.chars = full.chars;
-      p.img = full.img || p.img;
-    }
-  } catch(e) { console.warn('Failed to load full player data', e); }
   const isGm=currentUser?.role==='gm';
   const isOwnProfile=p.userId===currentUser?.id||p.name===currentUser?.username;
   const canManage=isGm||isOwnProfile;
@@ -2354,18 +2345,41 @@ async function openPlayerDetail(pid){
   document.getElementById('pd-char-count').textContent=charCount;
   document.getElementById('pd-add-char').style.display=canManage?'inline-flex':'none';
 
+  // Мгновенно рендерим карточку персонажей с базовыми данными
+  renderPlayerChars(p,canManage);
+
+  // В фоне параллельно подгружаем полные данные игрока (с картинками) и предметы
+  if(p.chars&&p.chars.length){
+    Promise.all([
+      apiRequest('/players',{}, {id:pid}).catch(()=>null),
+      ensureSection('items')
+    ]).then(([full])=>{
+      if(full&&full.chars){
+        p.chars=full.chars;
+        p.img=full.img||p.img;
+        p.board=full.board||p.board;
+      }
+      // Перерендериваем с полными данными
+      if(currentPlayerId===pid) renderPlayerChars(p,canManage);
+    });
+  }
+
+  openModal('m-player-detail');
+  renderPlayerRequests(p);
+}
+
+function renderPlayerChars(p,canManage){
   const charsList=document.getElementById('pd-chars');
   if(!p.chars||!p.chars.length){
     charsList.innerHTML='<div style="text-align:center;padding:24px;color:var(--txt-m);font-size:13px">У игрока ещё нет персонажей</div>';
-  }else{
-    // Предметы, выданные этому игроку (привязка по имени игрока)
-    await ensureSection('items');
-    const playerItems=(DB.items||[])
-      .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name))
-      .map(it=>{
-        const award=it.awardedTo.find(a=>a.player===p.name);
-        return {item:it,qty:award.qty};
-      });
+    return;
+  }
+  const playerItems=(DB.items||[])
+    .filter(it=>(it.awardedTo||[]).some(a=>a.player===p.name))
+    .map(it=>{
+      const award=it.awardedTo.find(a=>a.player===p.name);
+      return {item:it,qty:award.qty};
+    });
 
     charsList.innerHTML=p.chars.map((c,i)=>`
       <div class="char-card ${c.verified?'':'char-pending'}" id="char-${i}">
@@ -2457,11 +2471,7 @@ async function openPlayerDetail(pid){
         </div>
       </div>
     `).join('');
-  }
-
-  openModal('m-player-detail');
   initLazyImages(document.getElementById('m-player-detail'));
-  renderPlayerRequests(p);
 }
 
 // Список запросов игрока в его карточке
