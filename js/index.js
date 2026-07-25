@@ -2625,8 +2625,6 @@ function openCharDetail(idx){
         </div>
       `:''}
 
-      ${c.desc?`<div class="char-desc"><div class="cs-l" style="margin-bottom:4px">Описание</div>${c.desc}</div>`:''}
-
       <div class="char-inv">
         <div class="cs-l" style="margin-bottom:8px">Предметы (${playerItems.reduce((s,pi)=>s+pi.qty,0)} шт.)</div>
         ${playerItems.length?`
