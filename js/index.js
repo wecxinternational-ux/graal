@@ -398,9 +398,22 @@ let DB={
 const CACHE_KEY='graal_cache_v1';
 function saveCache(){
   try{
+    // Кешируем только лёгкие данные — без base64-вложений (иначе quota exceeded)
+    const stripAtts=(arr)=>(arr||[]).map(n=>{
+      const c={...n};
+      if(c.atts)c.atts=c.atts.map(a=>({name:a.name,type:a.type,size:a.size}));
+      return c;
+    });
     localStorage.setItem(CACHE_KEY, JSON.stringify({
-      DB:{players:DB.players,factions:DB.factions,transactions:DB.transactions,
-          notes:DB.notes,guides:DB.guides,logs:DB.logs,items:DB.items},
+      DB:{
+        players:DB.players,
+        factions:DB.factions,
+        transactions:DB.transactions,
+        notes:stripAtts(DB.notes),
+        guides:stripAtts(DB.guides),
+        logs:DB.logs,
+        items:(DB.items||[]).map(it=>{const c={...it};delete c.img;return c})
+      },
       ts:Date.now()
     }));
   }catch(e){/* quota exceeded — игнорируем */}
