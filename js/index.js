@@ -1392,6 +1392,8 @@ function editThread(){
   if(!threadPostId||!threadType)return;
   const db=threadType==='note'?DB.notes:DB.guides;
   const post=db.find(x=>x.id===threadPostId);if(!post)return;
+  // Рефреш роли пользователя из localStorage (может измениться в других вкладках)
+  currentUser=JSON.parse(localStorage.getItem('currentUser')||'null');
   const isGm=currentUser?.role==='gm';
   const isAuthor=post.author===currentUser?.username;
   if(!(isGm||isAuthor)){toast('Нет прав на редактирование','er');return}
@@ -1480,6 +1482,8 @@ async function deleteThread(){
   if(!threadPostId||!threadType)return;
   const db=threadType==='note'?DB.notes:DB.guides;
   const post=db.find(x=>x.id===threadPostId);if(!post)return;
+  // Рефреш роли пользователя из localStorage (может измениться в других вкладках)
+  currentUser=JSON.parse(localStorage.getItem('currentUser')||'null');
   const isGm=currentUser?.role==='gm';
   const isAuthor=post.author===currentUser?.username;
   if(!(isGm||isAuthor)){toast('Нет прав на удаление','er');return}
