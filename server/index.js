@@ -345,8 +345,16 @@ app.put('/api/notes', authenticateToken, async (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/notes', authenticateToken, requireGm, async (req, res) => {
+app.delete('/api/notes', authenticateToken, async (req, res) => {
   const {id} = req.query;
+  // ГМ может удалить любую заметку, игрок — только свою
+  const isGm = req.user?.role === 'gm';
+  if (!isGm) {
+    const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на удаление' });
+    }
+  }
   await db.execute({ sql: 'DELETE FROM notes WHERE id=?', args: [id] });
   res.json({ success: true });
 });
@@ -407,8 +415,16 @@ app.put('/api/guides', authenticateToken, async (req, res) => {
   res.json({ success: true });
 });
 
-app.delete('/api/guides', authenticateToken, requireGm, async (req, res) => {
+app.delete('/api/guides', authenticateToken, async (req, res) => {
   const {id} = req.query;
+  // ГМ может удалить любой гайд, игрок — только свой
+  const isGm = req.user?.role === 'gm';
+  if (!isGm) {
+    const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на удаление' });
+    }
+  }
   await db.execute({ sql: 'DELETE FROM guides WHERE id=?', args: [id] });
   res.json({ success: true });
 });
