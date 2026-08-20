@@ -1,4 +1,4 @@
-const { db, parseJSON, requireGm, ensureInitSafe } = require('./_auth');
+const { db, parseJSON, requireGm, authenticateToken, ensureInitSafe } = require('./_auth');
 
 module.exports = async (req, res) => {
   if (!await ensureInitSafe(res)) return;
@@ -31,6 +31,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'PUT') {
+    if (!await authenticateToken(req, res)) return;
     const { id } = req.query;
     // Специальный режим: добавление комментария (доступно любому аутентифицированному)
     if (req.body?.__action === 'addComment') {
@@ -60,6 +61,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'DELETE') {
+    if (!await authenticateToken(req, res)) return;
     const { id } = req.query;
     if (req.user?.role !== 'gm') {
       const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
