@@ -2876,15 +2876,21 @@ async function createCharacter(){
 
 /* ── Modal helpers ── */
 function openModal(id){
-  document.getElementById(id).classList.add('on');
+  const m=document.getElementById(id);if(!m)return;
+  let maxZ=550;
+  document.querySelectorAll('.mo.on').forEach(om=>{const z=parseInt(getComputedStyle(om).zIndex)||550;if(z>maxZ)maxZ=z;});
+  m.style.zIndex=maxZ+1;
+  m.classList.add('on');
 }
 function closeModal(id){
-  document.getElementById(id).classList.remove('on');
+  const m=document.getElementById(id);if(!m)return;
+  m.classList.remove('on');
+  m.style.zIndex='';
 }
 document.querySelectorAll('.mo').forEach(m=>{
   m.addEventListener('click',e=>{
-    if(e.target.classList.contains('mo'))m.classList.remove('on');
-    if(e.target.classList.contains('mc-btn'))m.classList.remove('on');
+    if(e.target.classList.contains('mo')){m.classList.remove('on');m.style.zIndex='';}
+    if(e.target.classList.contains('mc-btn')){m.classList.remove('on');m.style.zIndex='';}
   });
 });
 
