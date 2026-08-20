@@ -326,6 +326,13 @@ app.put('/api/notes', authenticateToken, async (req, res) => {
     await db.execute({ sql: 'UPDATE notes SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
     return res.json({ success: true, comments });
   }
+  // Проверка прав: ГМ или автор поста
+  if (req.user?.role !== 'gm') {
+    const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на редактирование' });
+    }
+  }
   const {title, tags, content, author, date, atts, comments} = req.body;
   await db.execute({
     sql: `UPDATE notes SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
@@ -335,6 +342,18 @@ app.put('/api/notes', authenticateToken, async (req, res) => {
       JSON.stringify(atts), JSON.stringify(comments), id
     ]
   });
+  res.json({ success: true });
+});
+
+app.delete('/api/notes', authenticateToken, async (req, res) => {
+  const {id} = req.query;
+  if (req.user?.role !== 'gm') {
+    const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на удаление' });
+    }
+  }
+  await db.execute({ sql: 'DELETE FROM notes WHERE id=?', args: [id] });
   res.json({ success: true });
 });
 
@@ -375,6 +394,13 @@ app.put('/api/guides', authenticateToken, async (req, res) => {
     await db.execute({ sql: 'UPDATE guides SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
     return res.json({ success: true, comments });
   }
+  // Проверка прав: ГМ или автор поста
+  if (req.user?.role !== 'gm') {
+    const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на редактирование' });
+    }
+  }
   const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
   await db.execute({
     sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?, sortOrder=?
@@ -384,6 +410,18 @@ app.put('/api/guides', authenticateToken, async (req, res) => {
       JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, sortOrder ?? 0, id
     ]
   });
+  res.json({ success: true });
+});
+
+app.delete('/api/guides', authenticateToken, async (req, res) => {
+  const {id} = req.query;
+  if (req.user?.role !== 'gm') {
+    const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
+    if (!existing || existing.author !== req.user?.username) {
+      return res.status(403).json({ error: 'Нет прав на удаление' });
+    }
+  }
+  await db.execute({ sql: 'DELETE FROM guides WHERE id=?', args: [id] });
   res.json({ success: true });
 });
 
