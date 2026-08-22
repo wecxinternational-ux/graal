@@ -1,616 +1,115 @@
+/* ═══════════════════════════════════════════════════════════
+   ГРААЛЬ · HTTP-сервер (self-hosted)
+
+   Это тонкий адаптер: вся бизнес-логика живёт в api/*.js —
+   тех же обработчиках, что писались под Vercel. Здесь они
+   монтируются в Express, поэтому логика и права доступа
+   существуют ровно в одном экземпляре.
+
+   Обработчик api/* имеет сигнатуру (req, res) и опирается
+   на req.query / req.body / res.status().json() — Express
+   предоставляет всё это в совместимом виде.
+═══════════════════════════════════════════════════════════ */
+
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const { db, init } = require('./db');
 const path = require('path');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+
+const { ensureInit } = require('../api/_db');
+
+const ROOT = path.join(__dirname, '..');
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 const app = express();
-const PORT = 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'graal_secret_key_2024';
+
+// За nginx — доверяем X-Forwarded-*, чтобы req.ip был реальным.
+app.set('trust proxy', true);
+app.disable('x-powered-by');
 
 app.use(cors());
-app.use(bodyParser.json({ limit: '30mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '30mb' }));
-app.use(express.static(path.join(__dirname, '..')));
+// Вложения в заметках приходят base64 внутри JSON — отсюда крупный лимит.
+app.use(express.json({ limit: '30mb' }));
+app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 
-// Middleware для проверки JWT токена
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Требуется авторизация' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Недействительный токен' });
+/* ── Мост Vercel-обработчик → Express ──
+   На Vercel исключение внутри обработчика перехватывает платформа.
+   В Express 4 отклонённый промис не всплывает в обработчик ошибок:
+   запрос просто зависает. Поэтому оборачиваем каждый вызов. */
+const mount = (route, handler) => async (req, res) => {
+  try {
+    await handler(req, res);
+  } catch (err) {
+    console.error(`[api] ${req.method} ${route} — ${err.stack || err.message}`);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Внутренняя ошибка сервера', details: err.message });
     }
-    req.user = user;
-    next();
-  });
+  }
 };
 
-// Middleware: только для ГМ
-const requireGm = (req, res, next) => {
-  if (req.user?.role !== 'gm') {
-    return res.status(403).json({ error: 'Требуется роль ГМ' });
-  }
-  next();
-};
+const routes = [
+  ['/api/auth/register', require('../api/auth/register')],
+  ['/api/auth/login',    require('../api/auth/login')],
+  ['/api/auth/promote',  require('../api/auth/promote')],
+  ['/api/items',         require('../api/items')],
+  ['/api/notes',         require('../api/notes')],
+  ['/api/guides',        require('../api/guides')],
+  ['/api/players',       require('../api/players')],
+  ['/api/logs',          require('../api/logs')],
+  ['/api/factions',      require('../api/factions')],
+  ['/api/transactions',  require('../api/transactions')],
+  ['/api/gm-codes',      require('../api/gm-codes')],
+  ['/api/data',          require('../api/data')],
+];
 
-// Генерация одноразового кода формата GM-XXXXXX
-function generateGmCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = 'GM-';
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return code;
+for (const [route, handler] of routes) {
+  app.all(route, mount(route, handler));
 }
 
-// Helper функции
-const parseJSON = (str, def) => {
-  try { return JSON.parse(str); } catch { return def; }
-};
+// Проверка живости — для nginx/мониторинга и после деплоя.
+app.get('/healthz', (req, res) => {
+  res.json({ ok: true, uptime: Math.round(process.uptime()) });
+});
 
-// Auth endpoints
-app.post('/api/auth/register', async (req, res) => {
-  const { username, email, password, role, gmCode } = req.body;
+// Неизвестный /api/* — отвечаем JSON, а не HTML-страницей,
+// иначе фронт падает на response.json() в apiRequest().
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Эндпоинт не найден' });
+});
 
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: 'Все поля обязательны' });
-  }
-
-  const userRole = role === 'gm' ? 'gm' : 'player';
-
-  // Для регистрации ГМ требуется одноразовый код.
-  // Bootstrap: если ГМов ещё нет — первый может зарегистрироваться без кода.
-  if (userRole === 'gm') {
-    let needsCode = true;
-    if (!gmCode) {
-      const gmCount = await db.execute({ sql: "SELECT COUNT(*) as count FROM users WHERE role = 'gm'" });
-      if (gmCount.rows[0].count === 0) {
-        needsCode = false;
-      }
-    }
-    if (needsCode) {
-      if (!gmCode) {
-        return res.status(400).json({ error: 'Для регистрации ГМ требуется код приглашения' });
-      }
-      const codeResult = await db.execute({
-        sql: 'SELECT * FROM gm_codes WHERE code = ?',
-        args: [gmCode.trim().toUpperCase()]
-      });
-      if (codeResult.rows.length === 0) {
-        return res.status(400).json({ error: 'Неверный код приглашения' });
-      }
-      if (codeResult.rows[0].usedById) {
-        return res.status(400).json({ error: 'Этот код уже использован' });
-      }
+/* ── Статика ── */
+app.use(express.static(ROOT, {
+  index: 'index.html',
+  extensions: ['html'],
+  setHeaders: (res, filePath) => {
+    // index.html не кешируем, чтобы правки фронта долетали сразу.
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
     }
   }
+}));
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await db.execute({
-      sql: 'INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)',
-      args: [username, email, hashedPassword, userRole]
+// Остальное отдаём index.html (одностраничное приложение).
+app.get('*', (req, res) => {
+  res.sendFile(path.join(ROOT, 'index.html'));
+});
+
+/* ── Старт ── */
+ensureInit()
+  .then(() => {
+    app.listen(PORT, HOST, () => {
+      console.log(`ГРААЛЬ: сервер слушает http://${HOST}:${PORT}`);
     });
-    const userId = Number(result.lastInsertRowid);
-
-    // Создаём игрока автоматически
-    await db.execute({
-      sql: 'INSERT INTO players (name, discord, userId) VALUES (?, ?, ?)',
-      args: [username, '', userId]
-    });
-
-    // Помечаем код как использованный (если был код, не bootstrap)
-    if (userRole === 'gm' && gmCode) {
-      await db.execute({
-        sql: 'UPDATE gm_codes SET usedById = ?, usedByName = ?, usedAt = CURRENT_TIMESTAMP WHERE code = ?',
-        args: [userId, username, gmCode.trim().toUpperCase()]
-      });
-    }
-
-    const token = jwt.sign({ id: userId, username, role: userRole }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: userId, username, email, role: userRole } });
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
-      return res.status(400).json({ error: 'Имя пользователя или почта уже заняты' });
-    }
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-});
-
-// Повышение игрока до ГМ по одноразовому коду
-app.post('/api/auth/promote', authenticateToken, async (req, res) => {
-  if (req.user?.role === 'gm') {
-    return res.status(400).json({ error: 'Вы уже являетесь ГМ' });
-  }
-  const { gmCode } = req.body || {};
-  if (!gmCode) {
-    return res.status(400).json({ error: 'Введите код приглашения' });
-  }
-  const normalizedCode = String(gmCode).trim().toUpperCase();
-  try {
-    const codeResult = await db.execute({
-      sql: 'SELECT * FROM gm_codes WHERE code = ?',
-      args: [normalizedCode]
-    });
-    if (codeResult.rows.length === 0) {
-      return res.status(400).json({ error: 'Неверный код приглашения' });
-    }
-    if (codeResult.rows[0].usedById) {
-      return res.status(400).json({ error: 'Этот код уже использован' });
-    }
-
-    await db.execute({
-      sql: 'UPDATE users SET role = ? WHERE id = ?',
-      args: ['gm', req.user.id]
-    });
-    await db.execute({
-      sql: 'UPDATE gm_codes SET usedById = ?, usedByName = ?, usedAt = CURRENT_TIMESTAMP WHERE code = ?',
-      args: [req.user.id, req.user.username, normalizedCode]
-    });
-
-    const token = jwt.sign(
-      { id: req.user.id, username: req.user.username, role: 'gm' },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-    res.json({ token, user: { id: req.user.id, username: req.user.username, role: 'gm' } });
-  } catch (err) {
-    res.status(500).json({ error: 'Ошибка сервера', details: err.message });
-  }
-});
-
-// GM invite codes: список, создание, удаление
-app.get('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
-  try {
-    const result = await db.execute({ sql: 'SELECT * FROM gm_codes ORDER BY id DESC' });
-    const codes = result.rows.map(r => ({
-      id: r.id,
-      code: r.code,
-      createdByName: r.createdByName,
-      usedByName: r.usedByName,
-      usedAt: r.usedAt,
-      createdAt: r.createdAt,
-      used: !!r.usedById
-    }));
-    res.json({ codes });
-  } catch (err) {
-    res.status(500).json({ error: 'Ошибка получения кодов', details: err.message });
-  }
-});
-
-app.post('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
-  try {
-    let code = generateGmCode();
-    let attempts = 0;
-    while (attempts < 5) {
-      const exists = await db.execute({ sql: 'SELECT id FROM gm_codes WHERE code = ?', args: [code] });
-      if (exists.rows.length === 0) break;
-      code = generateGmCode();
-      attempts++;
-    }
-    await db.execute({
-      sql: 'INSERT INTO gm_codes (code, createdById, createdByName) VALUES (?, ?, ?)',
-      args: [code, req.user.id, req.user.username]
-    });
-    res.json({ code, createdByName: req.user.username, createdAt: new Date().toISOString(), used: false });
-  } catch (err) {
-    res.status(500).json({ error: 'Ошибка создания кода', details: err.message });
-  }
-});
-
-app.delete('/api/gm-codes', authenticateToken, requireGm, async (req, res) => {
-  try {
-    const id = req.query?.id || req.body?.id;
-    if (!id) return res.status(400).json({ error: 'Не указан id кода' });
-    const existing = await db.execute({ sql: 'SELECT usedById FROM gm_codes WHERE id = ?', args: [id] });
-    if (existing.rows.length === 0) return res.status(404).json({ error: 'Код не найден' });
-    if (existing.rows[0].usedById) return res.status(400).json({ error: 'Нельзя удалить использованный код' });
-    await db.execute({ sql: 'DELETE FROM gm_codes WHERE id = ?', args: [id] });
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Ошибка удаления кода', details: err.message });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Все поля обязательны' });
-  }
-
-  const result = await db.execute({
-    sql: 'SELECT * FROM users WHERE username = ?',
-    args: [username]
+  })
+  .catch((err) => {
+    console.error('Не удалось инициализировать БД:', err);
+    process.exit(1);
   });
-  const user = result.rows[0];
-  if (!user) {
-    return res.status(401).json({ error: 'Неверные учётные данные' });
-  }
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) {
-    return res.status(401).json({ error: 'Неверные учётные данные' });
-  }
-
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
-});
-
-app.get('/api/auth/me', authenticateToken, async (req, res) => {
-  const result = await db.execute({
-    sql: 'SELECT id, username, email, role FROM users WHERE id = ?',
-    args: [req.user.id]
+// PM2/systemd останавливают процесс сигналом — выходим тихо.
+for (const sig of ['SIGINT', 'SIGTERM']) {
+  process.on(sig, () => {
+    console.log(`Получен ${sig}, останавливаюсь`);
+    process.exit(0);
   });
-  res.json(result.rows[0]);
-});
-
-// ITEMS
-app.get('/api/items', async (req, res) => {
-  const result = await db.execute('SELECT * FROM items ORDER BY id DESC');
-  res.json(result.rows.map(i => ({...i, awardedTo: parseJSON(i.awardedTo, [])})));
-});
-
-app.post('/api/items', authenticateToken, async (req, res) => {
-  const {name, type, rarity, attune, stage, price, desc, author, img} = req.body;
-  const result = await db.execute({
-    sql: `INSERT INTO items (name, type, rarity, attune, stage, price, "desc", author, img, awardedTo)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [name, type || 'Чудесный предмет', rarity, attune, stage, price || 0, desc, author || req.user.username, img, '[]']
-  });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body, awardedTo: [] });
-});
-
-app.put('/api/items', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  const {name, type, rarity, attune, stage, price, desc, author, img, awardedTo} = req.body;
-  await db.execute({
-    sql: `UPDATE items SET name=?, type=?, rarity=?, attune=?, stage=?, price=?, "desc"=?, author=?, img=?, awardedTo=?
-          WHERE id=?`,
-    args: [name, type, rarity, attune, stage, price, desc, author, img, JSON.stringify(awardedTo), id]
-  });
-  res.json({ success: true });
-});
-
-app.delete('/api/items', authenticateToken, async (req, res) => {
-  if (req.user?.role !== 'gm') {
-    return res.status(403).json({ error: 'Только ГМ может удалять предметы' });
-  }
-  const {id} = req.query;
-  await db.execute({ sql: 'DELETE FROM items WHERE id=?', args: [id] });
-  res.json({ success: true });
-});
-
-// NOTES
-app.get('/api/notes', async (req, res) => {
-  const result = await db.execute('SELECT * FROM notes ORDER BY id DESC');
-  res.json(result.rows.map(n => ({
-    ...n,
-    tags: parseJSON(n.tags, []),
-    atts: parseJSON(n.atts, []),
-    comments: parseJSON(n.comments, []),
-    isPublic: !!n.isPublic
-  })));
-});
-
-app.post('/api/notes', authenticateToken, async (req, res) => {
-  const {title, tags, content, author, date, atts, comments} = req.body;
-  const result = await db.execute({
-    sql: `INSERT INTO notes (title, tags, content, author, date, atts, comments)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      title, JSON.stringify(tags || []), content,
-      author || req.user.username, date || new Date().toISOString().split('T')[0],
-      JSON.stringify(atts || []), JSON.stringify(comments || [])
-    ]
-  });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body });
-});
-
-app.put('/api/notes', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  // Спец-режим: добавление комментария (доступно любому аутентифицированному)
-  if (req.body?.__action === 'addComment') {
-    const existing = (await db.execute({ sql: 'SELECT comments FROM notes WHERE id=?', args: [id] })).rows[0];
-    if (!existing) return res.status(404).json({ error: 'Запись не найдена' });
-    const comments = parseJSON(existing.comments, []);
-    comments.push(req.body.comment);
-    await db.execute({ sql: 'UPDATE notes SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
-    return res.json({ success: true, comments });
-  }
-  // Проверка прав: ГМ или автор поста
-  if (req.user?.role !== 'gm') {
-    const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
-    if (!existing || existing.author !== req.user?.username) {
-      return res.status(403).json({ error: 'Нет прав на редактирование' });
-    }
-  }
-  const {title, tags, content, author, date, atts, comments} = req.body;
-  await db.execute({
-    sql: `UPDATE notes SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?
-          WHERE id=?`,
-    args: [
-      title, JSON.stringify(tags), content, author, date,
-      JSON.stringify(atts), JSON.stringify(comments), id
-    ]
-  });
-  res.json({ success: true });
-});
-
-app.delete('/api/notes', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  // ГМ может удалить любую заметку, игрок — только свою
-  const isGm = req.user?.role === 'gm';
-  if (!isGm) {
-    const existing = (await db.execute({ sql: 'SELECT author FROM notes WHERE id=?', args: [id] })).rows[0];
-    if (!existing || existing.author !== req.user?.username) {
-      return res.status(403).json({ error: 'Нет прав на удаление' });
-    }
-  }
-  await db.execute({ sql: 'DELETE FROM notes WHERE id=?', args: [id] });
-  res.json({ success: true });
-});
-
-// GUIDES
-app.get('/api/guides', async (req, res) => {
-  const result = await db.execute('SELECT * FROM guides ORDER BY id DESC');
-  res.json(result.rows.map(g => ({
-    ...g,
-    tags: parseJSON(g.tags, []),
-    atts: parseJSON(g.atts, []),
-    comments: parseJSON(g.comments, [])
-  })));
-});
-
-app.post('/api/guides', authenticateToken, async (req, res) => {
-  const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
-  const result = await db.execute({
-    sql: `INSERT INTO guides (title, tags, content, author, date, atts, comments, parentId, sortOrder)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      title, JSON.stringify(tags || []), content, author || req.user.username,
-      date || new Date().toISOString().split('T')[0],
-      JSON.stringify(atts || []), JSON.stringify(comments || []),
-      parentId ?? null, sortOrder ?? 0
-    ]
-  });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body, parentId: parentId ?? null, sortOrder: sortOrder ?? 0 });
-});
-
-app.put('/api/guides', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  // Спец-режим: добавление комментария (доступно любому аутентифицированному)
-  if (req.body?.__action === 'addComment') {
-    const existing = (await db.execute({ sql: 'SELECT comments FROM guides WHERE id=?', args: [id] })).rows[0];
-    if (!existing) return res.status(404).json({ error: 'Запись не найдена' });
-    const comments = parseJSON(existing.comments, []);
-    comments.push(req.body.comment);
-    await db.execute({ sql: 'UPDATE guides SET comments=? WHERE id=?', args: [JSON.stringify(comments), id] });
-    return res.json({ success: true, comments });
-  }
-  // Проверка прав: ГМ или автор поста
-  if (req.user?.role !== 'gm') {
-    const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
-    if (!existing || existing.author !== req.user?.username) {
-      return res.status(403).json({ error: 'Нет прав на редактирование' });
-    }
-  }
-  const {title, tags, content, author, date, atts, comments, parentId, sortOrder} = req.body;
-  await db.execute({
-    sql: `UPDATE guides SET title=?, tags=?, content=?, author=?, date=?, atts=?, comments=?, parentId=?, sortOrder=?
-          WHERE id=?`,
-    args: [
-      title, JSON.stringify(tags), content, author, date,
-      JSON.stringify(atts), JSON.stringify(comments), parentId ?? null, sortOrder ?? 0, id
-    ]
-  });
-  res.json({ success: true });
-});
-
-app.delete('/api/guides', authenticateToken, async (req, res) => {
-  const {id} = req.query;
-  // ГМ может удалить любой гайд, игрок — только свой
-  const isGm = req.user?.role === 'gm';
-  if (!isGm) {
-    const existing = (await db.execute({ sql: 'SELECT author FROM guides WHERE id=?', args: [id] })).rows[0];
-    if (!existing || existing.author !== req.user?.username) {
-      return res.status(403).json({ error: 'Нет прав на удаление' });
-    }
-  }
-  await db.execute({ sql: 'DELETE FROM guides WHERE id=?', args: [id] });
-  res.json({ success: true });
-});
-
-// PLAYERS
-app.get('/api/players', async (req, res) => {
-  const { id } = req.query;
-  if (id) {
-    const result = await db.execute({ sql: 'SELECT * FROM players WHERE id=?', args: [id] });
-    const p = result.rows[0];
-    if (!p) return res.status(404).json({ error: 'Игрок не найден' });
-    return res.json({ ...p, chars: parseJSON(p.chars, []) });
-  }
-  const result = await db.execute('SELECT id, name, discord, points, slots, userId, img, board FROM players ORDER BY id DESC');
-  const players = [];
-  for (const p of result.rows) {
-    const charsRaw = (await db.execute({ sql: 'SELECT chars FROM players WHERE id=?', args: [p.id] })).rows[0]?.chars;
-    const chars = parseJSON(charsRaw, []).map(c => ({
-      name: c.name, class: c.class, subclass: c.subclass,
-      level: c.level, verified: c.verified,
-      kt: c.kt, os: c.os, rep: c.rep, desc: c.desc,
-      createdAt: c.createdAt
-    }));
-    players.push({ ...p, chars });
-  }
-  res.json(players);
-});
-
-app.post('/api/players', authenticateToken, async (req, res) => {
-  const {name, discord, points, slots, chars} = req.body;
-  const result = await db.execute({
-    sql: `INSERT INTO players (name, discord, points, slots, chars, userId)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [name, discord, points || 0, slots || 1, JSON.stringify(chars || []), req.user.id]
-  });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body });
-});
-
-app.put('/api/players', authenticateToken, async (req, res) => {
-  try {
-    const {id} = req.query;
-    const {name, discord, points, slots, chars, img, board} = req.body;
-    await db.execute({
-      sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?, board=?
-            WHERE id=?`,
-      args: [name, discord, points, slots, JSON.stringify(chars), img, board, id]
-    });
-    res.json({ success: true });
-  } catch (e) {
-    console.error('PUT /api/players error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.delete('/api/players', authenticateToken, requireGm, async (req, res) => {
-  const {id} = req.query;
-  await db.execute({ sql: 'DELETE FROM players WHERE id=?', args: [id] });
-  res.json({ success: true });
-});
-
-// LOGS
-app.get('/api/logs', async (req, res) => {
-  const result = await db.execute('SELECT * FROM logs ORDER BY id DESC');
-  res.json(result.rows.map(l => ({...l, meta: parseJSON(l.meta, {})})));
-});
-
-app.post('/api/logs', authenticateToken, async (req, res) => {
-  const {type, icon, text, meta, time, ts} = req.body;
-  const result = await db.execute({
-    sql: `INSERT INTO logs (type, icon, text, meta, time, ts)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    args: [
-      type, icon, text, JSON.stringify(meta || {}),
-      time || new Date().toLocaleString('ru-RU'),
-      ts || Date.now()
-    ]
-  });
-  res.json({ id: Number(result.lastInsertRowid), ...req.body });
-});
-
-// FACTIONS
-app.get('/api/factions', async (req, res) => {
-  const result = await db.execute('SELECT * FROM factions');
-  res.json(result.rows);
-});
-
-app.post('/api/factions', authenticateToken, async (req, res) => {
-  const {name, color} = req.body;
-  try {
-    const result = await db.execute({
-      sql: 'INSERT INTO factions (name, color) VALUES (?, ?)',
-      args: [name, color || '#A78BFA']
-    });
-    res.json({ id: Number(result.lastInsertRowid), ...req.body });
-  } catch (e) {
-    res.status(400).json({ error: 'Фракция уже существует' });
-  }
-});
-
-// TRANSACTIONS
-app.get('/api/transactions', authenticateToken, async (req, res) => {
-  const result = await db.execute('SELECT * FROM transactions ORDER BY id DESC');
-  if (req.user?.role === 'gm') return res.json(result.rows);
-  res.json(result.rows.filter(t => t.player === req.user.username));
-});
-
-app.post('/api/transactions', authenticateToken, async (req, res) => {
-  const {player, desc, cost, status, type} = req.body;
-  const txType = type === 'request' ? 'request' : 'transaction';
-  // Игроки могут создавать только текстовые запросы
-  if (txType === 'transaction' && req.user?.role !== 'gm') {
-    return res.status(403).json({ error: 'Только ГМ может создавать транзакции с очками' });
-  }
-  if (txType === 'request') {
-    if (!desc || !desc.trim()) {
-      return res.status(400).json({ error: 'Введите текст запроса' });
-    }
-    const playerName = req.user?.role === 'gm' ? (player || req.user.username) : req.user.username;
-    const result = await db.execute({
-      sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
-      args: [playerName, desc.trim(), cost || 0, 'pending', 'request']
-    });
-    return res.json({ id: Number(result.lastInsertRowid), player: playerName, desc: desc.trim(), cost: cost || 0, status: 'pending', type: 'request' });
-  }
-  const result = await db.execute({
-    sql: 'INSERT INTO transactions (player, "desc", cost, status, type) VALUES (?, ?, ?, ?, ?)',
-    args: [player, desc, cost, status || 'pending', 'transaction']
-  });
-  res.json({ id: Number(result.lastInsertRowid), player, desc, cost, status: status || 'pending', type: 'transaction' });
-});
-
-app.put('/api/transactions', authenticateToken, requireGm, async (req, res) => {
-  const {id} = req.query;
-  const {player, desc, cost, status, type} = req.body;
-  await db.execute({
-    sql: 'UPDATE transactions SET player=?, "desc"=?, cost=?, status=?, type=? WHERE id=?',
-    args: [player, desc, cost, status, type || 'transaction', id]
-  });
-  res.json({ success: true });
-});
-
-// Получить все данные сразу
-app.get('/api/data', async (req, res) => {
-  // Частичная загрузка: ?sections=items,guides
-  const requested = (req.query.sections || '').split(',').map(s => s.trim()).filter(Boolean);
-  const wantAll = !requested.length;
-  const want = (name) => wantAll || requested.includes(name);
-  const result = {};
-
-  if (want('items')) {
-    result.items = (await db.execute('SELECT * FROM items ORDER BY id DESC')).rows
-      .map(i => ({...i, awardedTo: parseJSON(i.awardedTo, [])}));
-  }
-  if (want('notes')) {
-    result.notes = (await db.execute('SELECT * FROM notes ORDER BY id DESC')).rows
-      .map(n => ({...n, tags: parseJSON(n.tags, []), atts: parseJSON(n.atts, []), comments: parseJSON(n.comments, []), isPublic: !!n.isPublic}));
-  }
-  if (want('guides')) {
-    result.guides = (await db.execute('SELECT * FROM guides ORDER BY id DESC')).rows
-      .map(g => ({...g, tags: parseJSON(g.tags, []), atts: parseJSON(g.atts, []), comments: parseJSON(g.comments, [])}));
-  }
-  if (want('players')) {
-    result.players = (await db.execute('SELECT * FROM players ORDER BY id DESC')).rows
-      .map(p => ({...p, chars: parseJSON(p.chars, [])}));
-  }
-  if (want('logs')) {
-    result.logs = (await db.execute('SELECT * FROM logs ORDER BY id DESC')).rows
-      .map(l => ({...l, meta: parseJSON(l.meta, {})}));
-  }
-  if (want('factions')) {
-    result.factions = (await db.execute('SELECT * FROM factions')).rows;
-  }
-  if (want('transactions')) {
-    result.transactions = (await db.execute('SELECT * FROM transactions ORDER BY id DESC')).rows;
-  }
-
-  res.json(result);
-});
-
-// Запуск с инициализацией БД
-init().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:${PORT}`);
-    console.log(`Откройте браузер и перейдите по ссылке выше`);
-  });
-}).catch(err => {
-  console.error('Ошибка инициализации БД:', err);
-  process.exit(1);
-});
+}

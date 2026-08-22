@@ -9,10 +9,6 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Метод не поддерживается' });
   }
 
-  // Логируем входящие данные для диагностики.
-  console.log('register req.body:', JSON.stringify(req.body));
-  console.log('register content-type:', req.headers['content-type']);
-
   const { username, email, password, role, gmCode } = req.body;
 
   if (!username || !email || !password) {

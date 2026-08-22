@@ -1,8 +1,16 @@
 const { createClient } = require('@libsql/client');
+const path = require('path');
 
 BigInt.prototype.toJSON = function () { return Number(this); };
 
-const dbUrl = process.env.TURSO_DATABASE_URL || 'file:./server/graal.db';
+// По умолчанию — локальный файл SQLite рядом с кодом.
+// Путь абсолютный: под systemd/PM2 рабочая директория произвольная,
+// и относительный './server/graal.db' указывал бы в случайное место.
+// TURSO_DATABASE_URL оставлен для совместимости: если он задан,
+// используется удалённая БД, если нет — локальный файл.
+const DEFAULT_DB_FILE = path.join(__dirname, '..', 'server', 'graal.db');
+const dbUrl = process.env.TURSO_DATABASE_URL
+  || (process.env.DB_FILE ? `file:${path.resolve(process.env.DB_FILE)}` : `file:${DEFAULT_DB_FILE}`);
 const authToken = process.env.TURSO_AUTH_TOKEN;
 
 const db = createClient(
