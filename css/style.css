@@ -974,3 +974,25 @@ body.light .char-pending-badge{color:#A16207}
 .crop-lbl{font-size:11px;color:var(--txt-m);text-transform:uppercase;letter-spacing:.06em}
 .crop-range{width:130px;accent-color:var(--gold);cursor:pointer}
 .crop-hint{font-size:11px;color:var(--txt-m);text-align:center;margin-top:6px;font-style:italic}
+
+/* ── Разметка в описаниях ──────────────────────────────────────
+   Текст описаний идёт приглушённым цветом (--txt-s). Жирный в том же
+   цвете и весе 600 почти не отличался от обычного, поэтому здесь он
+   получает полный вес 700 и основной цвет текста — так выделение
+   действительно читается. */
+.id-desc strong, .char-desc strong, #pd-board-view strong,
+.thread-body strong, .cmt-text strong {
+  font-weight:700;
+  color:var(--txt);
+}
+.id-desc em, .char-desc em, #pd-board-view em,
+.thread-body em, .cmt-text em { font-style:italic; color:var(--txt-s) }
+
+.id-desc u, .char-desc u, #pd-board-view u { text-decoration:underline; text-underline-offset:2px }
+.id-desc s, .char-desc s, #pd-board-view s { opacity:.65 }
+
+.id-desc code, .char-desc code, #pd-board-view code {
+  font-family:'JetBrains Mono',monospace;font-size:.92em;
+  background:var(--bg-h);border:1px solid var(--bdr);
+  border-radius:4px;padding:1px 5px;color:var(--gold);
+}

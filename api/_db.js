@@ -19,6 +19,21 @@ const db = createClient(
     : { url: dbUrl }
 );
 
+// Драйвер libSQL отвергает undefined в параметрах запроса и роняет
+// обработчик с 500. Клиент присылает не все поля (необязательная
+// картинка, описание, примечание), и каждое такое поле превращалось
+// в аварию — из-за этого, например, не сохранялись персонажи.
+// Пропущенное значение — это NULL, приводим его явно в одном месте,
+// вместо того чтобы помнить про это в каждом обработчике.
+const rawExecute = db.execute.bind(db);
+db.execute = (stmt, ...rest) => {
+  if (stmt && Array.isArray(stmt.args)) {
+    const args = stmt.args.map((v) => (v === undefined ? null : v));
+    return rawExecute({ ...stmt, args }, ...rest);
+  }
+  return rawExecute(stmt, ...rest);
+};
+
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
