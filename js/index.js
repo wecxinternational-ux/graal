@@ -2518,7 +2518,7 @@ function renderPlayers(){
   }
   g.innerHTML=list.map(p=>`
     <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerChars(${p.id})">
-      ${isGm?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить игрока">✕</button>`:''}
+      ${(isGm&&(p.userId===currentUser?.id||(p.userId==null&&p.name===currentUser?.username)))?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить свой реестр">✕</button>`:''}
       <div class="ic-ph">${p.img?`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`:'👤'}</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>

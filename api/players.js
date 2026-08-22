@@ -131,11 +131,26 @@ module.exports = async (req, res) => {
     }
   }
 
-  // DELETE — только ГМ может удалять профили игроков
+  // DELETE — удалить можно только собственный реестр.
+  // Раньше ГМ мог снести профиль любого игрока вместе со всеми
+  // его персонажами; теперь право ограничено своим профилем.
   if (req.method === 'DELETE') {
     if (!await requireGm(req, res)) return;
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'Не указан id' });
+
+    const target = (await db.execute({
+      sql: 'SELECT userId, name FROM players WHERE id=?',
+      args: [id]
+    })).rows[0];
+    if (!target) return res.status(404).json({ error: 'Профиль игрока не найден' });
+
+    const byId   = target.userId != null && Number(target.userId) === Number(req.user.id);
+    const byName = target.userId == null && target.name === req.user.username;
+    if (!byId && !byName) {
+      return res.status(403).json({ error: 'Удалить можно только свой реестр' });
+    }
+
     await db.execute({ sql: 'DELETE FROM players WHERE id=?', args: [id] });
     return res.json({ success: true });
   }
