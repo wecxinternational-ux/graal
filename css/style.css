@@ -877,3 +877,27 @@ body.light .tx-approved,body.light .req-row.req-approved .req-state{color:#05966
 body.light .ch-v{color:#047857}
 body.light .char-pending-badge{color:#A16207}
 /* Бейдж этапа на картинке предмета остаётся тёмным — читается поверх фото */
+
+/* ── Удаление репутации (ГМ) ── */
+.rep-del{
+  margin-left:auto;background:none;border:none;cursor:pointer;
+  color:var(--txt-m);font-size:11px;line-height:1;padding:2px 4px;
+  border-radius:4px;opacity:.55;transition:opacity .15s,color .15s,background .15s;
+}
+.rep-del:hover{opacity:1;color:#f87171;background:rgba(248,113,113,.12)}
+
+/* ── Имя вложения: длинные имена не должны разрывать вёрстку ── */
+.att-name{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:min(60vw,320px);display:inline-block;vertical-align:bottom;
+}
+
+/* ── Панель форматирования текста ── */
+.fmt-bar{display:flex;gap:4px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.fmt-btn{
+  background:var(--bg-h);border:1px solid var(--bd);color:var(--txt-s);
+  border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;line-height:1.4;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.fmt-btn:hover{background:var(--bg-e);color:var(--txt);border-color:var(--gold)}
+.fmt-hint{font-size:11px;color:var(--txt-m);margin-left:auto}

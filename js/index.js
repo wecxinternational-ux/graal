@@ -370,17 +370,50 @@ const FACTIONS_DEFAULT=[
   {name:'Нейтральные',color:'#9CA3AF'},
 ];
 function emo(type){const k=Object.keys(ITEM_EMO).find(k=>type?.includes(k));return k?ITEM_EMO[k]:'🔮'}
+/* Русское склонение: 1 персонаж, 2 персонажа, 5 персонажей */
+function plural(n,one,few,many){
+  const a=Math.abs(n)%100, b=a%10;
+  const word = (a>10&&a<20) ? many : (b>1&&b<5) ? few : (b===1) ? one : many;
+  return `${n} ${word}`;
+}
+/* Разметка описаний — в стиле Discord:
+   **жирный**, *курсив*, __подчёркнутый__, ~~зачёркнутый~~, `моноширинный`.
+   Порядок замен важен: сначала двойные маркеры, затем одинарные. */
 function formatDesc(desc){
   if(!desc)return '';
-  let html=desc
+  let html=String(desc)
     .replace(/&/g,'&amp;')
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g,'<em>$1</em>')
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([\s\S]+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/__([\s\S]+?)__/g,'<u>$1</u>')
+    .replace(/~~([\s\S]+?)~~/g,'<s>$1</s>')
+    .replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>')
     .replace(/\n\n/g,'</p><p>')
     .replace(/\n/g,'<br>');
   return `<p>${html}</p>`;
+}
+
+/* Кнопки форматирования над полем ввода: оборачивают выделенный
+   текст парным маркером и возвращают фокус в поле. */
+function fmtWrap(textareaId,marker){
+  const t=document.getElementById(textareaId);
+  if(!t)return;
+  const s=t.selectionStart,e=t.selectionEnd;
+  const sel=t.value.slice(s,e)||'текст';
+  t.value=t.value.slice(0,s)+marker+sel+marker+t.value.slice(e);
+  t.focus();
+  t.setSelectionRange(s+marker.length, s+marker.length+sel.length);
+}
+
+/* Время везде показываем по Москве, чтобы у мастера и игроков
+   оно совпадало независимо от часового пояса устройства. */
+const MSK_TZ='Europe/Moscow';
+function mskDateTime(value){
+  const d=value==null?new Date():(typeof value==='number'?new Date(value):new Date(value));
+  if(isNaN(d))return typeof value==='string'?value:'';
+  return d.toLocaleString('ru-RU',{timeZone:MSK_TZ,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' МСК';
 }
 
 /* ── State ── */
@@ -406,7 +439,14 @@ function saveCache(){
     });
     localStorage.setItem(CACHE_KEY, JSON.stringify({
       DB:{
-        players:DB.players,
+        // Из кеша выкидываем base64-картинки: иначе quota exceeded,
+        // и тогда не сохранялся вообще никакой кеш.
+        players:(DB.players||[]).map(p=>{
+          const c={...p};
+          delete c.img;
+          if(Array.isArray(c.chars))c.chars=c.chars.map(ch=>{const x={...ch};delete x.img;return x});
+          return c;
+        }),
         factions:DB.factions,
         transactions:DB.transactions,
         notes:stripAtts(DB.notes),
@@ -892,12 +932,53 @@ function readFile(file,pfx){
   if(file.type.startsWith('image/'))reader.readAsDataURL(file);
   else reader.readAsDataURL(file);
 }
+/* Имена файлов бывают очень длинными и разрывают вёрстку —
+   показываем начало и расширение, полное имя оставляем в подсказке. */
+function shortName(name,max=28){
+  name=String(name||'');
+  if(name.length<=max)return name;
+  const dot=name.lastIndexOf('.');
+  const ext=dot>0?name.slice(dot):'';
+  return name.slice(0,max-ext.length-1)+'…'+ext;
+}
+/* Сброс загруженной картинки: очищает превью, выбранный файл и
+   сохранённые данные вложения, и запоминает сам факт сброса —
+   иначе сохранение оставило бы прежнюю картинку. */
+const imgCleared=new Set();
+function uploadEls(pfx){
+  // У формы персонажа превью названо ce-img-preview-N, у остальных — PFX-img-preview.
+  const m=/^ce-(\d+)$/.exec(pfx);
+  const suf=m?`-${m[1]}`:'';
+  return {
+    preview:   document.getElementById(m?`ce-img-preview${suf}`:`${pfx}-img-preview`),
+    previewImg:document.getElementById(m?`ce-img-preview-img${suf}`:`${pfx}-img-preview-img`),
+    fileInp:   document.getElementById(m?`ce-file-inp${suf}`:`${pfx}-file-inp`),
+    imgInput:  document.getElementById(`${pfx}-img`)
+  };
+}
+function clearUpload(pfx){
+  noteAtts[pfx]=[];
+  imgCleared.add(pfx);
+  const {preview,previewImg,fileInp,imgInput}=uploadEls(pfx);
+  if(preview)preview.style.display='none';
+  if(previewImg)previewImg.src='';
+  if(fileInp)fileInp.value='';
+  if(imgInput)imgInput.value='';
+  const existing=document.getElementById(`existing-img-${pfx}`);
+  if(existing)existing.remove();
+  if(pfx==='pd'){
+    const url=document.getElementById('pd-avatar-url');
+    if(url)url.value='';
+  }
+  toast('Картинка убрана — не забудьте сохранить','if');
+}
+
 function renderAttList(pfx){
   const list=document.getElementById(pfx+'-att-list');
   if(!list)return;
   list.innerHTML=(noteAtts[pfx]||[]).map((a,i)=>`
     <div class="att-chip" onclick="removeAtt('${pfx}',${i})">
-      <span>${a.type.startsWith('image/')?'🖼':'📎'}</span>${a.name} <span style="margin-left:auto;opacity:.5;font-size:10px">✕</span>
+      <span>${a.type.startsWith('image/')?'🖼':'📎'}</span><span class="att-name" title="${(a.name||'').replace(/"/g,'&quot;')}">${shortName(a.name)}</span> <span style="margin-left:auto;opacity:.5;font-size:10px">✕</span>
     </div>`).join('');
 }
 function removeAtt(pfx,i){noteAtts[pfx].splice(i,1);renderAttList(pfx);}
@@ -1581,7 +1662,7 @@ async function addComment(){
   const dbArr=threadType==='note'?DB.notes:DB.guides;
   const post=dbArr.find(x=>x.id===threadPostId);if(!post)return;
   post.comments=post.comments||[];
-  const newComment={author:currentUser?.username||'Мастер Эрандил',text,time:new Date().toLocaleString('ru-RU')};
+  const newComment={author:currentUser?.username||'Мастер Эрандил',text,time:mskDateTime()};
   // Используем спец-режим добавления комментария — доступен любому пользователю
   const data=await apiRequest(`/${threadType==='note'?'notes':'guides'}`, {
     method: 'PUT',
@@ -1730,6 +1811,9 @@ async function gmApplyKt(){
         });
       }
     }
+    // Репутация, сведённая к нулю, больше не висит в профиле:
+    // раньше запись оставалась навсегда и убрать её было нельзя.
+    ch.rep=ch.rep.filter(x=>Number(x.val)!==0);
     if(ch.kt[0]>=ch.kt[1]){ch.level++;ch.kt=[0,8+Math.floor(ch.level/4)*2];await addLog('level','⬆',`<span class="li-pl">${cname}</span> достиг <strong>${ch.level} уровня</strong>!`);}
   }
   await apiRequest('/players', {
@@ -2030,14 +2114,25 @@ function hideFac(){const i=document.getElementById('gm-fac-inp');if(i)hideFacFor
    LOGS + ANALYTICS
 ══════════════ */
 async function addLog(type,icon,text,meta){
-  const logEntry={
-    type,icon,text,meta:meta||{},time:new Date().toLocaleString('ru-RU'),ts:Date.now()
-  };
-  const newLog = await apiRequest('/logs', {
-    method: 'POST',
-    body: JSON.stringify(logEntry)
-  });
-  DB.logs.unshift(newLog);
+  // Журнал вести может только ГМ. Для игрока запись в журнал —
+  // необязательный побочный эффект, и её отказ (403) не должен
+  // выглядеть как ошибка основного действия: раньше отправленный
+  // запрос сопровождался сообщением «Требуется роль ГМ».
+  if(currentUser?.role!=='gm')return null;
+  try{
+    const logEntry={
+      type,icon,text,meta:meta||{},time:mskDateTime(),ts:Date.now()
+    };
+    const newLog = await apiRequest('/logs', {
+      method: 'POST',
+      body: JSON.stringify(logEntry)
+    });
+    DB.logs.unshift(newLog);
+    return newLog;
+  }catch(e){
+    console.warn('Не удалось записать в журнал:', e.message);
+    return null;
+  }
 }
 let analyticsOpen=false;
 function toggleAnalytics(){
@@ -2065,7 +2160,7 @@ function renderLogs(){
       <div class="li ${l.type}">${l.icon}</div>
       <div class="lb">
         <div class="lt">${l.text}</div>
-        <div class="ltime">${l.time}</div>
+        <div class="ltime">${l.ts?mskDateTime(l.ts):l.time}</div>
       </div>
       <div style="color:var(--txt-m);font-size:18px;padding-left:8px;opacity:.4">›</div>
     </div>`).join('');
@@ -2283,7 +2378,7 @@ function renderPlayers(){
         <div class="ic-ft">
           <span class="ip">${p.points||0} pts</span>
           <span class="iq">Слоты: ${p.chars?.filter(c=>c.verified).length||0}/${p.slots||1}</span>
-          <span style="font-size:11px;color:var(--txt-m)">${p.chars?.length||0} перс</span>
+          <span style="font-size:11px;color:var(--txt-m)">${plural(p.chars?.length||0,"персонаж","персонажа","персонажей")}</span>
         </div>
         ${p.chars?.length ? `
           <div style="margin-top:10px">
@@ -2472,7 +2567,8 @@ function renderPlayerChars(p,canManage){
               <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
                 <input type="file" id="ce-file-inp-${i}" accept="image/*" onchange="handleFiles(event,'ce-${i}')">
                 <div id="ce-img-preview-${i}" style="display:none;margin-bottom:8px"><img id="ce-img-preview-img-${i}" style="max-width:200px;max-height:200px;border-radius:8px"></div>
-                ${c.img?`<div style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
+                ${c.img?`<div id="existing-img-ce-${i}" style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
+                ${c.img?`<button type="button" class="btn btn-g" style="margin-bottom:8px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ce-${i}')">Убрать картинку</button>`:''}
                 Перетащите изображение или нажмите для выбора
               </div>
             </div>
@@ -2638,11 +2734,12 @@ function openCharDetail(idx){
       ${c.rep&&c.rep.length?`
         <div class="char-rep">
           <div class="cs-l" style="margin-bottom:6px">Репутация</div>
-          ${c.rep.map(r=>`
+          ${c.rep.map((r,ri)=>`
             <div class="rep-chip">
               <span class="rep-fac">${r.fac}</span>
               <span class="rep-val ${r.val<0?'neg':''}">${r.val>0?'+':''}${r.val}</span>
               ${r.note?`<span class="rep-note">${r.note}</span>`:''}
+              ${isGm?`<button class="rep-del" title="Удалить репутацию" onclick="event.stopPropagation();removeCharRep(${idx},${ri})">✕</button>`:''}
             </div>
           `).join('')}
         </div>
@@ -2682,6 +2779,33 @@ function openCharDetail(idx){
   initLazyImages(document.getElementById('m-char-detail'));
 }
 
+/* Удаление записи репутации у персонажа (только ГМ).
+   Нужна, когда репутацию выдали ошибочно или она сведена к нулю. */
+async function removeCharRep(idx,repIdx){
+  if(currentUser?.role!=='gm'){toast('Только ГМ может удалять репутацию','er');return}
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  const c=p?.chars?.[idx];
+  const entry=c?.rep?.[repIdx];
+  if(!c||!entry)return;
+  const fac=entry.fac;
+  if(!confirm(`Удалить репутацию «${fac}» у персонажа «${c.name}»?`))return;
+  c.rep.splice(repIdx,1);
+  try{
+    await apiRequest('/players',{
+      method:'PUT',
+      body:JSON.stringify({
+        name:p.name, discord:p.discord, points:p.points, slots:p.slots,
+        chars:p.chars, img:p.img||null, board:p.board||null
+      })
+    },{id:p.id});
+    await addLog('revoke','🗑',`Репутация [<span class="li-fac">${fac}</span>] снята с <span class="li-pl">${c.name}</span>. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+    toast('Репутация удалена','ok');
+    openCharDetail(idx);
+  }catch(e){
+    toast(e.message||'Ошибка удаления репутации','er');
+  }
+}
+
 function toggleEditChar(idx){
   const editEl=document.getElementById(`char-edit-${idx}`);
   if(!editEl)return;
@@ -2710,6 +2834,8 @@ async function saveChar(idx){
   c.desc=document.getElementById(`ce-desc-${idx}`).value.trim();
   const imgData=(noteAtts[`ce-${idx}`]||[])[0]?.data;
   if(imgData)c.img=imgData;
+  else if(imgCleared.has(`ce-${idx}`))c.img=null;
+  imgCleared.delete(`ce-${idx}`);
 
   try{
     await apiRequest('/players',{
@@ -2793,18 +2919,31 @@ async function createCharacter(){
     parseInt(document.getElementById('nc-os-4').value)||0
   ];
   const desc=document.getElementById('nc-desc').value.trim();
-  const img=(noteAtts.nc||[])[0]?.data||null;
+  const img=imgCleared.has('nc')?null:((noteAtts.nc||[])[0]?.data||null);
+  imgCleared.delete('nc');
 
   if(!name){
     toast('Введите имя персонажа','er');
     return;
   }
 
-  // Находим игрока, привязанного к текущему пользователю
+  // Находим игрока, привязанного к текущему пользователю.
+  // Если профиля нет (например, его удалили) — заводим заново,
+  // иначе персонажа стало бы невозможно создать.
   let me=DB.players.find(p=>p.userId===currentUser?.id||p.name===currentUser?.username);
   if(!me){
-    toast('Профиль игрока не найден','er');
-    return;
+    try{
+      me=await apiRequest('/players',{
+        method:'POST',
+        body:JSON.stringify({name:currentUser?.username,discord:'',chars:[]})
+      });
+      me.chars=me.chars||[];
+      DB.players=DB.players||[];
+      DB.players.unshift(me);
+    }catch(e){
+      toast(e.message||'Не удалось создать профиль игрока','er');
+      return;
+    }
   }
   if(me.chars?.some(c=>c.name===name)){
     toast('Персонаж с таким именем уже существует','er');
@@ -2889,9 +3028,18 @@ function closeModal(id){
 }
 document.querySelectorAll('.mo').forEach(m=>{
   m.addEventListener('click',e=>{
-    if(e.target.classList.contains('mo')){m.classList.remove('on');m.style.zIndex='';}
+    // Закрываем только по кнопке «×». Клик по фону окно не закрывает —
+    // иначе случайный промах мимо поля терял заполненную форму.
     if(e.target.classList.contains('mc-btn')){m.classList.remove('on');m.style.zIndex='';}
   });
+});
+// Escape закрывает верхнее открытое окно — нужен предсказуемый способ выйти.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  const open=[...document.querySelectorAll('.mo.on')];
+  if(!open.length)return;
+  const top=open.reduce((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)>=(parseInt(getComputedStyle(a).zIndex)||0)?b:a);
+  top.classList.remove('on'); top.style.zIndex='';
 });
 
 /* ── Toast notifications ── */

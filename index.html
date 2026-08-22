@@ -273,7 +273,7 @@
     </div>
     <div class="gmc gmc-lg">
       <div class="gmc-ic">🔑</div>
-      <h3>Транзакции</h3><p>Подтверждение покупок за поинты</p>
+      <h3>Запросы</h3><p>Обработка запросов игроков</p>
       <div style="margin-bottom:10px">
         <select class="sel" id="tx-category-f" onchange="renderTx()" style="width:100%">
           <option value="">Все категории</option>
@@ -475,7 +475,7 @@
           </select>
         </div>
         <div class="fg"><label>Цена (ОС)</label><input class="inp" type="number" id="ni-price" placeholder="0" min="0"></div>
-        <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ni-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
+        <div class="fg fg-full"><label>Описание</label><div class="fmt-bar"><button type="button" class="fmt-btn" onclick="fmtWrap('ni-desc','**')" title="Жирный"><b>Ж</b></button><button type="button" class="fmt-btn" onclick="fmtWrap('ni-desc','*')" title="Курсив"><i>К</i></button><button type="button" class="fmt-btn" onclick="fmtWrap('ni-desc','__')" title="Подчёркнутый"><u>П</u></button><button type="button" class="fmt-btn" onclick="fmtWrap('ni-desc','~~')" title="Зачёркнутый"><s>З</s></button><button type="button" class="fmt-btn" onclick="fmtWrap('ni-desc','`')" title="Моноширинный">&lt;/&gt;</button><span class="fmt-hint">**жирный** *курсив* __подчёркнутый__</span></div><textarea class="inp" id="ni-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
         <div class="fg"><label>Автор</label><input class="inp" id="ni-author" placeholder="Мастер…"></div>
         <div class="fg fg-full">
           <label>Изображение</label>
@@ -483,7 +483,7 @@
             <input class="inp" id="ni-img" placeholder="https://… или загрузите файл">
             <div class="fdz" id="ni-fdz" onclick="document.getElementById('ni-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ni')">
               <input type="file" id="ni-file-inp" accept="image/*" onchange="handleFiles(event,'ni')">
-              <div id="ni-img-preview" style="display:none;margin-bottom:8px"><img id="ni-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              <div id="ni-img-preview" style="display:none;margin-bottom:8px"><img id="ni-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"><button type="button" class="btn btn-g" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ni')">Убрать картинку</button></div>
               Перетащите изображение или нажмите для загрузки
             </div>
           </div>
@@ -525,7 +525,7 @@
           </select>
         </div>
         <div class="fg"><label>Цена (ОС)</label><input class="inp" type="number" id="ei-price" placeholder="0" min="0"></div>
-        <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ei-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
+        <div class="fg fg-full"><label>Описание</label><div class="fmt-bar"><button type="button" class="fmt-btn" onclick="fmtWrap('ei-desc','**')" title="Жирный"><b>Ж</b></button><button type="button" class="fmt-btn" onclick="fmtWrap('ei-desc','*')" title="Курсив"><i>К</i></button><button type="button" class="fmt-btn" onclick="fmtWrap('ei-desc','__')" title="Подчёркнутый"><u>П</u></button><button type="button" class="fmt-btn" onclick="fmtWrap('ei-desc','~~')" title="Зачёркнутый"><s>З</s></button><button type="button" class="fmt-btn" onclick="fmtWrap('ei-desc','`')" title="Моноширинный">&lt;/&gt;</button><span class="fmt-hint">**жирный** *курсив* __подчёркнутый__</span></div><textarea class="inp" id="ei-desc" rows="4" placeholder="Свойства и эффекты…"></textarea></div>
         <div class="fg"><label>Автор</label><input class="inp" id="ei-author" placeholder="Мастер…"></div>
         <div class="fg fg-full">
           <label>Изображение</label>
@@ -533,7 +533,7 @@
             <input class="inp" id="ei-img" placeholder="https://… или загрузите файл">
             <div class="fdz" id="ei-fdz" onclick="document.getElementById('ei-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ei')">
               <input type="file" id="ei-file-inp" accept="image/*" onchange="handleFiles(event,'ei')">
-              <div id="ei-img-preview" style="display:none;margin-bottom:8px"><img id="ei-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              <div id="ei-img-preview" style="display:none;margin-bottom:8px"><img id="ei-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"><button type="button" class="btn btn-g" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ei')">Убрать картинку</button></div>
               <div id="ei-current-img" style="display:none;margin-bottom:8px"><img id="ei-current-img-el" style="max-width:200px;max-height:200px;border-radius:8px"></div>
               Перетащите изображение или нажмите для загрузки
             </div>
@@ -659,18 +659,18 @@
         <div class="fg"><label>Класс</label><input class="inp" id="nc-class" placeholder="Плут"></div>
         <div class="fg"><label>Подкласс</label><input class="inp" id="nc-subclass" placeholder="Аркановый трикстер"></div>
         <div class="fg"><label>Уровень</label><input class="inp" type="number" id="nc-level" value="1" min="1" max="20"></div>
-        <div class="fg"><label>КТ (минимум)</label><input class="inp" type="number" id="nc-kt-min" value="0" min="0"></div>
-        <div class="fg"><label>КТ (максимум)</label><input class="inp" type="number" id="nc-kt-max" value="0" min="0"></div>
+        <div class="fg"><label>Текущее КТ</label><input class="inp" type="number" id="nc-kt-min" value="0" min="0"></div>
+        <div class="fg"><label>Максимальное КТ</label><input class="inp" type="number" id="nc-kt-max" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="nc-os-1" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="nc-os-2" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="nc-os-3" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="nc-os-4" value="0" min="0"></div>
-        <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
+        <div class="fg fg-full"><label>Описание</label><div class="fmt-bar"><button type="button" class="fmt-btn" onclick="fmtWrap('nc-desc','**')" title="Жирный"><b>Ж</b></button><button type="button" class="fmt-btn" onclick="fmtWrap('nc-desc','*')" title="Курсив"><i>К</i></button><button type="button" class="fmt-btn" onclick="fmtWrap('nc-desc','__')" title="Подчёркнутый"><u>П</u></button><button type="button" class="fmt-btn" onclick="fmtWrap('nc-desc','~~')" title="Зачёркнутый"><s>З</s></button><button type="button" class="fmt-btn" onclick="fmtWrap('nc-desc','`')" title="Моноширинный">&lt;/&gt;</button><span class="fmt-hint">**жирный** *курсив* __подчёркнутый__</span></div><textarea class="inp" id="nc-desc" rows="3" placeholder="Краткое описание персонажа…"></textarea></div>
         <div class="fg fg-full">
           <label>Аватар персонажа</label>
           <div class="fdz" id="nc-fdz" onclick="document.getElementById('nc-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'nc')">
             <input type="file" id="nc-file-inp" accept="image/*" onchange="handleFiles(event,'nc')">
-            <div id="nc-img-preview" style="display:none;margin-bottom:8px"><img id="nc-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+            <div id="nc-img-preview" style="display:none;margin-bottom:8px"><img id="nc-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"><button type="button" class="btn btn-g" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('nc')">Убрать картинку</button></div>
             Перетащите изображение или нажмите для выбора
           </div>
         </div>
@@ -701,7 +701,7 @@
             <input class="inp" id="pd-avatar-url" placeholder="https://…">
             <div class="fdz" id="pd-fdz" onclick="document.getElementById('pd-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'pd')">
               <input type="file" id="pd-file-inp" accept="image/*" onchange="handleFiles(event,'pd')">
-              <div id="pd-img-preview" style="display:none;margin-bottom:8px"><img id="pd-img-preview-img" style="max-width:120px;max-height:120px;border-radius:8px"></div>
+              <div id="pd-img-preview" style="display:none;margin-bottom:8px"><img id="pd-img-preview-img" style="max-width:120px;max-height:120px;border-radius:8px"><button type="button" class="btn btn-g" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('pd')">Убрать картинку</button></div>
               Перетащите изображение или нажмите для загрузки
             </div>
             <button class="btn btn-g" onclick="savePlayerAvatar()">Сохранить аватар</button>
@@ -759,7 +759,7 @@
       <button class="mc-btn" onclick="closeModal('m-request')">✕</button>
     </div>
     <div class="mb">
-      <p style="font-size:12px;color:var(--txt-m);margin-bottom:10px">Опишите ваш запрос — он появится у ГМа в разделе «Транзакции».</p>
+      <p style="font-size:12px;color:var(--txt-m);margin-bottom:10px">Опишите ваш запрос — он появится у ГМа в разделе «Запросы».</p>
       <div class="fg">
         <label>Категория запроса</label>
         <select id="req-category" class="sel">
