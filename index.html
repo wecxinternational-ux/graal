@@ -231,7 +231,7 @@
         <div class="fg"><label>Игрок</label><select class="sel" id="gm-kt-player" onchange="fillGmChars('gm-kt-player','gm-kt-char')"></select></div>
         <div class="fg"><label>Персонаж</label><select class="sel" id="gm-kt-char"></select></div>
         <div class="ktg">
-          <div><label>КТ</label><input class="inp" type="number" id="gm-kt-val" placeholder="+0"></div>
+          <div><label>КТ</label><input class="inp" type="number" step="0.5" id="gm-kt-val" placeholder="+0"></div>
           <div><label>ОС этап</label><select class="sel" id="gm-os-stage">
             <option value="0">Этап 1</option>
             <option value="1">Этап 2</option>
@@ -252,7 +252,7 @@
     </div>
     <div class="gmc">
       <div class="gmc-ic">✅</div>
-      <h3>Заверить персонажа</h3><p>Активация персонажа: ⏳ — на проверке, ✓ — заверён</p>
+      <h3>Заверить персонажа</h3><p>Активация персонажа: ⏳ — на проверке, ✓ — заверен</p>
       <div class="gf">
         <div class="fg"><label>Игрок</label><select class="sel" id="gm-cer-player" onchange="fillGmChars('gm-cer-player','gm-cer-char')"></select></div>
         <div class="fg"><label>Персонаж</label><select class="sel" id="gm-cer-char"></select></div>
@@ -675,8 +675,8 @@
         <div class="fg"><label>Класс</label><input class="inp" id="nc-class" placeholder="Плут"></div>
         <div class="fg"><label>Подкласс</label><input class="inp" id="nc-subclass" placeholder="Аркановый трикстер"></div>
         <div class="fg"><label>Уровень</label><input class="inp" type="number" id="nc-level" value="1" min="1" max="20"></div>
-        <div class="fg"><label>Текущее КТ</label><input class="inp" type="number" id="nc-kt-min" value="0" min="0"></div>
-        <div class="fg"><label>Максимальное КТ</label><input class="inp" type="number" id="nc-kt-max" value="0" min="0"></div>
+        <div class="fg"><label>Текущее КТ</label><input class="inp" type="number" step="0.5" id="nc-kt-min" value="0" min="0"></div>
+        <div class="fg"><label>Максимальное КТ</label><input class="inp" type="number" step="0.5" id="nc-kt-max" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="nc-os-1" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="nc-os-2" value="0" min="0"></div>
         <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="nc-os-3" value="0" min="0"></div>

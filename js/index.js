@@ -1893,7 +1893,7 @@ function fillGmChars(playerId,charId){
   const player=document.getElementById(playerId)?.value;
   const p=DB.players.find(x=>x.name===player);
   const el=document.getElementById(charId);
-  // Для панели КТ/ОС — только заверённые персонажи (активные).
+  // Для панели КТ/ОС — только заверенные персонажи (активные).
   // Для панели заверения — все персонажи (ГМ может заверять/снимать статус).
   const isCertPanel=charId==='gm-cer-char';
   const chars=(p?.chars||[]).filter(c=>isCertPanel?true:c.verified);
@@ -1955,14 +1955,14 @@ async function gmChangeSlots(){
 async function gmApplyKt(){
   const pname=document.getElementById('gm-kt-player').value;
   const cname=document.getElementById('gm-kt-char').value;
-  const kt=parseInt(document.getElementById('gm-kt-val').value)||0;
+  const kt=ktNum(document.getElementById('gm-kt-val').value);
   const osStage=parseInt(document.getElementById('gm-os-stage').value)||0;
   const os=parseInt(document.getElementById('gm-os-val').value)||0;
   if(!pname||pname.startsWith('Выбрать')){toast('Выберите игрока','er');return}
   if(!cname||cname.startsWith('Выбрать')){toast('Выберите персонажа','er');return}
   const p=DB.players.find(x=>x.name===pname);
   const ch=p?.chars.find(c=>c.name===cname);
-  if(ch&&!ch.verified){toast('Персонаж ещё не заверён. Заверьте его в панели «Заверить персонажа»','er');return}
+  if(ch&&!ch.verified){toast('Персонаж ещё не заверен. Заверьте его в панели «Заверить персонажа»','er');return}
 
   // Собираем все строки репутации (примечание убрано из UI)
   const repRows=[...document.querySelectorAll('#rep-rows .rep-row')]
@@ -1974,7 +1974,7 @@ async function gmApplyKt(){
     .filter(r=>r.fac&&r.val!==0);
 
   if(ch){
-    ch.kt[0]=Math.min(ch.kt[0]+kt,ch.kt[1]);
+    ch.kt[0]=Math.min(ktNum(ktNum(ch.kt[0])+kt),ktNum(ch.kt[1]));
     ch.os=normalizeOs(ch.os);
     ch.os[osStage]=(ch.os[osStage]||0)+os;
     ch.rep=ch.rep||[];
@@ -2051,8 +2051,8 @@ async function gmCertify(status){
       chars:p.chars, img:p.img || null, board:p.board||null
     })
   }, { id: p.id });
-  await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'разаверен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
-  toast(`${cname} ${status?'заверен':'разаверен'}. ${!status?'Слот освобожден':''}`,'ok');
+  await addLog('certify','✅',`Персонаж <strong>«${cname}»</strong> ${status?'заверен':'не активен'}. ГМ: <span class="li-pl">${currentUser?.username}</span>.`);
+  toast(`${cname} ${status?'заверен':'не активен'}.${!status?' Слот освобождён':''}`,'ok');
 }
 const TX_CATEGORIES={item:'Предмет',quest:'Квест',reputation:'Репутация',points:'Поинты/ОС',other:'Другое'};
 function renderTx(){
@@ -2567,7 +2567,7 @@ function renderPlayers(){
             <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;display:flex;align-items:center;gap:10px">
               <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
               <div>
-                <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверен">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                 <div style="color:var(--txt-s);margin-top:2px">${p.chars[0].class||'—'}${p.chars[0].subclass?' · '+p.chars[0].subclass:''} · ур.${p.chars[0].level||1}</div>
               </div>
             </div>
@@ -2578,7 +2578,7 @@ function renderPlayers(){
                     <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;display:flex;align-items:center;gap:10px">
                       <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
                       <div>
-                        <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
+                        <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверен">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
                         <div style="color:var(--txt-s);margin-top:2px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
                       </div>
                     </div>
@@ -2645,7 +2645,7 @@ function renderCharsGrid(p,canManage){
     <div class="card char-card ${c.verified?'':'unverified'}" onclick="openCharDetail(${i})">
       <div class="cc-ph">${c.img?`<img class="lz-img" data-src="${c.img}" style="opacity:0;transition:opacity .25s ease">`:'🧙'}</div>
       <div class="cc-bd">
-        <div class="cc-n">${c.name||'—'} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:11px" title="На проверке">⏳</span>'}</div>
+        <div class="cc-n">${c.name||'—'} ${c.verified?'<span title="Заверен">✓</span>':'<span style="color:var(--txt-m);font-size:11px" title="На проверке">⏳</span>'}</div>
         <div class="cc-cl">${c.class||'—'}${c.subclass?' · '+c.subclass:''}</div>
         <div class="cc-ft">
           <span class="cc-tag">ур. ${c.level||1}</span>
@@ -2669,7 +2669,15 @@ function closePlayerChars(){
 /* КТ хранится парой [текущее, максимум]; у старых записей бывает мусор. */
 function normalizeKt(kt){
   if(!Array.isArray(kt))return [0,8];
-  return [Number(kt[0])||0, Number(kt[1])||8];
+  return [ktNum(kt[0]), ktNum(kt[1])||8];
+}
+
+/* КТ бывает дробным — например 3.5. Читаем как дробное число и
+   округляем до сотых: при сложении дробей иначе всплывает
+   погрешность вида 3.4000000000000004. */
+function ktNum(v){
+  const n=parseFloat(v);
+  return Number.isFinite(n)?Math.round(n*100)/100:0;
 }
 
 /* ── Player detail / character management ── */
@@ -2753,7 +2761,7 @@ function renderPlayerChars(p,canManage){
           <div style="display:flex;align-items:center;gap:12px">
             ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
             <div>
-              <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
+              <div class="char-name">${c.name}${c.verified?' <span class="char-verified" title="Заверен">✓</span>':' <span class="char-pending-badge" title="На проверке у ГМ">⏳ На проверке</span>'}<span class="char-expand" id="char-expand-${i}">▾</span></div>
               <div class="char-meta">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
             </div>
           </div>
@@ -2766,7 +2774,7 @@ function renderPlayerChars(p,canManage){
         </div>
         <div class="char-details" id="char-details-${i}" style="display:none">
           <div class="char-stats">
-            <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
+            <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?ktNum(c.kt[0])+'/'+ktNum(c.kt[1]):'0/0'}</span></div>
             <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
             <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
             <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
@@ -2925,7 +2933,7 @@ function openCharDetail(idx,editMode=false){
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
         ${c.img?`<img class="lz-img" data-src="${c.img}" style="width:80px;height:80px;border-radius:12px;object-fit:cover;flex-shrink:0;opacity:0;transition:opacity .25s ease">`:''}
         <div>
-          <div class="char-name" style="font-size:18px">${c.name}${c.verified?' <span class="char-verified" title="Заверён">✓</span>':' <span class="char-pending-badge">⏳ На проверке</span>'}</div>
+          <div class="char-name" style="font-size:18px">${c.name}${c.verified?' <span class="char-verified" title="Заверен">✓</span>':' <span class="char-pending-badge">⏳ На проверке</span>'}</div>
           <div class="char-meta" style="font-size:13px;margin-top:4px">${c.class||'—'}${c.subclass?' · '+c.subclass:''} · ур.${c.level||1}</div>
         </div>
       </div>
@@ -2952,7 +2960,7 @@ function openCharDetail(idx,editMode=false){
       `:''}
 
       <div class="char-stats">
-        <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?c.kt[0]+'/'+c.kt[1]:'0/0'}</span></div>
+        <div><span class="cs-l">КТ</span><span class="cs-v">${c.kt?ktNum(c.kt[0])+'/'+ktNum(c.kt[1]):'0/0'}</span></div>
         <div><span class="cs-l">ОС этап 1</span><span class="cs-v">${normalizeOs(c.os)[0]}</span></div>
         <div><span class="cs-l">ОС этап 2</span><span class="cs-v">${normalizeOs(c.os)[1]}</span></div>
         <div><span class="cs-l">ОС этап 3</span><span class="cs-v">${normalizeOs(c.os)[2]}</span></div>
@@ -3006,8 +3014,8 @@ function openCharDetail(idx,editMode=false){
             <div class="fg"><label>Класс</label><input class="inp" id="ce-class-${idx}" value="${(c.class||'').replace(/"/g,'&quot;')}"></div>
             <div class="fg"><label>Подкласс</label><input class="inp" id="ce-subclass-${idx}" value="${(c.subclass||'').replace(/"/g,'&quot;')}"></div>
             <div class="fg"><label>Уровень</label><input class="inp" type="number" min="1" max="20" id="ce-level-${idx}" value="${c.level||1}"></div>
-            <div class="fg"><label>КТ мин</label><input class="inp" type="number" id="ce-ktmin-${idx}" value="${c.kt?c.kt[0]:0}"></div>
-            <div class="fg"><label>КТ макс</label><input class="inp" type="number" id="ce-ktmax-${idx}" value="${c.kt?c.kt[1]:0}"></div>
+            <div class="fg"><label>Текущее КТ</label><input class="inp" type="number" step="0.5" min="0" id="ce-ktmin-${idx}" value="${c.kt?ktNum(c.kt[0]):0}"></div>
+            <div class="fg"><label>Максимальное КТ</label><input class="inp" type="number" step="0.5" min="0" id="ce-ktmax-${idx}" value="${c.kt?ktNum(c.kt[1]):0}"></div>
             <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="ce-os-1-${idx}" value="${normalizeOs(c.os)[0]}"></div>
             <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${idx}" value="${normalizeOs(c.os)[1]}"></div>
             <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${idx}" value="${normalizeOs(c.os)[2]}"></div>
@@ -3096,8 +3104,8 @@ async function saveChar(idx){
   c.class=document.getElementById(`ce-class-${idx}`).value.trim();
   c.subclass=document.getElementById(`ce-subclass-${idx}`).value.trim();
   c.level=parseInt(document.getElementById(`ce-level-${idx}`).value)||1;
-  const ktMin=parseInt(document.getElementById(`ce-ktmin-${idx}`).value)||0;
-  const ktMax=parseInt(document.getElementById(`ce-ktmax-${idx}`).value)||0;
+  const ktMin=ktNum(document.getElementById(`ce-ktmin-${idx}`).value);
+  const ktMax=ktNum(document.getElementById(`ce-ktmax-${idx}`).value);
   c.kt=[ktMin,ktMax];
   c.os=[
     parseInt(document.getElementById(`ce-os-1-${idx}`).value)||0,
@@ -3187,8 +3195,8 @@ async function createCharacter(){
   const cls=document.getElementById('nc-class').value.trim();
   const subclass=document.getElementById('nc-subclass').value.trim();
   const level=parseInt(document.getElementById('nc-level').value)||1;
-  const ktMin=parseInt(document.getElementById('nc-kt-min').value)||0;
-  const ktMax=parseInt(document.getElementById('nc-kt-max').value)||0;
+  const ktMin=ktNum(document.getElementById('nc-kt-min').value);
+  const ktMax=ktNum(document.getElementById('nc-kt-max').value);
   const os=[
     parseInt(document.getElementById('nc-os-1').value)||0,
     parseInt(document.getElementById('nc-os-2').value)||0,
