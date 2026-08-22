@@ -550,7 +550,7 @@
             <div class="fdz" id="ei-fdz" onclick="document.getElementById('ei-file-inp').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ei')">
               <input type="file" id="ei-file-inp" accept="image/*" onchange="handleFiles(event,'ei')">
               <div id="ei-img-preview" style="display:none;margin-bottom:8px"><img id="ei-img-preview-img" style="max-width:200px;max-height:200px;border-radius:8px"><button type="button" class="btn btn-g" style="margin-top:6px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ei')">Убрать картинку</button></div>
-              <div id="ei-current-img" style="display:none;margin-bottom:8px"><img id="ei-current-img-el" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+              <div id="ei-current-img" style="display:none;margin-bottom:8px"><img id="ei-current-img-el" style="max-width:200px;max-height:200px;border-radius:8px"><div style="margin-top:6px"><button type="button" class="btn btn-g" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();editItemImage()">✥ Настроить кадр</button></div></div>
               Перетащите изображение или нажмите для загрузки
             </div>
           </div>

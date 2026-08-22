@@ -963,8 +963,10 @@ body.light .char-pending-badge{color:#A16207}
 
 /* ── Кадрирование картинки ── */
 .crop-host{margin:4px 0 2px}
+/* Высота задаётся пропорцией кадра: портрет квадратный,
+   карточка предмета — 4:3. */
 .crop-view{
-  width:200px;height:200px;border-radius:10px;overflow:hidden;
+  width:220px;height:auto;aspect-ratio:1/1;border-radius:10px;overflow:hidden;
   border:1px solid var(--bd);background:var(--bg-h);
   position:relative;margin:0 auto;
 }

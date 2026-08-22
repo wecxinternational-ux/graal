@@ -923,8 +923,9 @@ function readFile(file,pfx){
       const preview=document.getElementById(`${pfx}-img-preview`);
       const previewImg=document.getElementById(`${pfx}-img-preview-img`);
       const imgInput=document.getElementById(`${pfx}-img`);
-      // Для аватаров показываем редактор кадра, для остальных — обычное превью.
-      if(isAvatarPfx(pfx)&&buildCropEditor(pfx,ev.target.result,file.name)){
+      // Для картинок, которые потом показываются в рамке фиксированных
+      // пропорций (портреты, карточки предметов), открываем редактор кадра.
+      if(isCropPfx(pfx)&&buildCropEditor(pfx,ev.target.result,file.name)){
         return;
       }
       if(preview&&previewImg){
@@ -994,24 +995,34 @@ function clearUpload(pfx){
    пересобирается в готовое изображение и кладётся туда же, откуда
    его берёт сохранение, поэтому остальной код не меняется. */
 
-const CROP_SIZE=512;          // сторона готовой картинки, px
-const cropState={};           // pfx -> {img, scale, minScale, x, y, name}
+/* Кадр под форму, в которой картинка будет показана: портреты
+   квадратные, карточка предмета — 4:3. Иначе настроенный ракурс
+   всё равно обрезался бы при выводе. */
+const CROP_PRESETS={
+  avatar:{w:512,h:512},
+  item:  {w:640,h:480}
+};
+function cropPreset(pfx){
+  return (pfx==='ni'||pfx==='ei') ? CROP_PRESETS.item : CROP_PRESETS.avatar;
+}
+const cropState={};           // pfx -> {img, scale, minScale, x, y, name, w, h}
 
-function isAvatarPfx(pfx){
-  return pfx==='nc'||pfx==='pd'||/^ce-\d+$/.test(pfx);
+function isCropPfx(pfx){
+  return pfx==='nc'||pfx==='pd'||pfx==='ni'||pfx==='ei'||/^ce-\d+$/.test(pfx);
 }
 
 function buildCropEditor(pfx,dataUrl,fileName){
   const {preview,previewImg}=uploadEls(pfx);
   if(!preview)return false;
   if(previewImg)previewImg.style.display='none';
+  const dim=cropPreset(pfx);
 
   let host=preview.querySelector('.crop-host');
   if(!host){
     host=document.createElement('div');
     host.className='crop-host';
     host.innerHTML=`
-      <div class="crop-view"><canvas class="crop-cv" width="${CROP_SIZE}" height="${CROP_SIZE}"></canvas></div>
+      <div class="crop-view" style="aspect-ratio:${dim.w}/${dim.h}"><canvas class="crop-cv" width="${dim.w}" height="${dim.h}"></canvas></div>
       <div class="crop-ctl">
         <span class="crop-lbl">Масштаб</span>
         <input type="range" class="crop-range" min="100" max="300" value="100">
@@ -1023,17 +1034,18 @@ function buildCropEditor(pfx,dataUrl,fileName){
   preview.style.display='block';
 
   const cv=host.querySelector('.crop-cv');
+  cv.width=dim.w; cv.height=dim.h;
+  host.querySelector('.crop-view').style.aspectRatio=`${dim.w}/${dim.h}`;
   const range=host.querySelector('.crop-range');
   const img=new Image();
   img.onload=()=>{
-    const minScale=Math.max(CROP_SIZE/img.width, CROP_SIZE/img.height);
-    cropState[pfx]={img,scale:minScale,minScale,x:0,y:0,name:fileName||'image.jpg'};
-    range.min='100'; range.max='300'; range.value='100';
+    const minScale=Math.max(dim.w/img.width, dim.h/img.height);
+    cropState[pfx]={img,scale:minScale,minScale,x:0,y:0,name:fileName||'image.jpg',w:dim.w,h:dim.h};
+    range.value='100';
     clampCrop(pfx); drawCrop(pfx,cv); commitCrop(pfx);
   };
   img.src=dataUrl;
 
-  // Ползунок масштаба
   range.oninput=()=>{
     const st=cropState[pfx]; if(!st)return;
     st.scale=st.minScale*(Number(range.value)/100);
@@ -1046,7 +1058,6 @@ function buildCropEditor(pfx,dataUrl,fileName){
     drawCrop(pfx,cv); commitCrop(pfx);
   };
 
-  // Перетаскивание — мышью и пальцем
   let drag=null;
   const start=(px,py)=>{const st=cropState[pfx];if(st)drag={px,py,x:st.x,y:st.y}};
   const move=(px,py)=>{
@@ -1075,9 +1086,7 @@ function buildCropEditor(pfx,dataUrl,fileName){
   return true;
 }
 
-/* Открыть кадрирование для уже сохранённой картинки.
-   Раньше редактор появлялся только при выборе нового файла, и у
-   загруженного портрета ракурс поменять было нельзя. */
+/* Открыть кадрирование для уже сохранённой картинки. */
 function editExistingImage(pfx,src){
   if(!src){toast('Сначала загрузите картинку','er');return}
   const existing=document.getElementById(`existing-img-${pfx}`);
@@ -1094,11 +1103,21 @@ function editCharImage(idx){
   editExistingImage(`ce-${idx}`, c.img);
 }
 
+/* То же для картинки предмета в форме редактирования. */
+function editItemImage(){
+  const src=document.getElementById('ei-img')?.value
+        || document.getElementById('ei-current-img-el')?.src;
+  if(!src){toast('Сначала загрузите картинку','er');return}
+  const cur=document.getElementById('ei-current-img');
+  if(cur)cur.style.display='none';
+  buildCropEditor('ei',src,'item.jpg');
+}
+
 /* Не даём утащить картинку за края области просмотра. */
 function clampCrop(pfx){
   const st=cropState[pfx]; if(!st)return;
   const w=st.img.width*st.scale, h=st.img.height*st.scale;
-  const maxX=Math.max(0,(w-CROP_SIZE)/2), maxY=Math.max(0,(h-CROP_SIZE)/2);
+  const maxX=Math.max(0,(w-st.w)/2), maxY=Math.max(0,(h-st.h)/2);
   st.x=Math.min(maxX,Math.max(-maxX,st.x));
   st.y=Math.min(maxY,Math.max(-maxY,st.y));
 }
@@ -1106,9 +1125,9 @@ function clampCrop(pfx){
 function drawCrop(pfx,cv){
   const st=cropState[pfx]; if(!st)return;
   const ctx=cv.getContext('2d');
-  ctx.clearRect(0,0,CROP_SIZE,CROP_SIZE);
+  ctx.clearRect(0,0,st.w,st.h);
   const w=st.img.width*st.scale, h=st.img.height*st.scale;
-  ctx.drawImage(st.img,(CROP_SIZE-w)/2+st.x,(CROP_SIZE-h)/2+st.y,w,h);
+  ctx.drawImage(st.img,(st.w-w)/2+st.x,(st.h-h)/2+st.y,w,h);
 }
 
 let _cropTimer=null;
@@ -1121,11 +1140,11 @@ function commitCropDebounced(pfx){
 function commitCrop(pfx){
   const st=cropState[pfx]; if(!st)return;
   const cv=document.createElement('canvas');
-  cv.width=CROP_SIZE; cv.height=CROP_SIZE;
+  cv.width=st.w; cv.height=st.h;
   const ctx=cv.getContext('2d');
-  ctx.fillStyle='#000'; ctx.fillRect(0,0,CROP_SIZE,CROP_SIZE);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,st.w,st.h);
   const w=st.img.width*st.scale, h=st.img.height*st.scale;
-  ctx.drawImage(st.img,(CROP_SIZE-w)/2+st.x,(CROP_SIZE-h)/2+st.y,w,h);
+  ctx.drawImage(st.img,(st.w-w)/2+st.x,(st.h-h)/2+st.y,w,h);
   // JPEG вместо PNG: кадр всегда непрозрачный, а вес меньше в разы —
   // картинки хранятся в базе строкой base64.
   const data=cv.toDataURL('image/jpeg',0.85);
