@@ -186,8 +186,7 @@ function notifyResolvedRequests(){
     const prev=seen[t.id];
     // Уведомляем только о новых завершениях (переход из pending)
     if(prev==='pending' && (t.status==='approved'||t.status==='rejected')){
-      const isReq=t.type==='request';
-      const verb=t.status==='approved'?(isReq?'Запрос одобрен':'Транзакция одобрена'):(isReq?'Запрос отклонён':'Транзакция отклонена');
+      const verb=t.status==='approved'?'Запрос одобрен':'Запрос отклонён';
       const icon=t.status==='approved'?'✓':'✗';
       const type=t.status==='approved'?'ok':'er';
       // Обрезаем длинный текст для компактности тоста
@@ -2059,11 +2058,8 @@ async function approveTx(id){
     method: 'PUT',
     body: JSON.stringify(t)
   }, { id: t.id });
-  const isReq=t.type==='request';
-  await addLog('award','🔑',isReq
-    ?`Запрос от <span class="li-pl">${t.player}</span> одобрен: <em>${t.desc}</em>`
-    :`Транзакция одобрена: <span class="li-pl">${t.player}</span> — <strong>${t.desc}</strong>.`);
-  toast(isReq?'Запрос одобрен':'Транзакция одобрена','ok');renderTx();
+  await addLog('award','🔑',`Запрос от <span class="li-pl">${t.player}</span> одобрен: <em>${t.desc}</em>`);
+  toast('Запрос одобрен','ok');renderTx();
   if(currentPlayerId){const p=DB.players.find(x=>x.id===currentPlayerId);if(p)renderPlayerRequests(p);}
 }
 async function rejectTx(id){
@@ -2073,8 +2069,8 @@ async function rejectTx(id){
     method: 'PUT',
     body: JSON.stringify(t)
   }, { id: t.id });
-  const isReq=t.type==='request';
-  toast(isReq?'Запрос отклонён':'Транзакция отклонена','er');renderTx();
+  await addLog('revoke','✗',`Запрос от <span class="li-pl">${t.player}</span> отклонён: <em>${t.desc}</em>`);
+  toast('Запрос отклонён','er');renderTx();
   if(currentPlayerId){const p=DB.players.find(x=>x.id===currentPlayerId);if(p)renderPlayerRequests(p);}
 }
 
