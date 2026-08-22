@@ -95,6 +95,7 @@ async function fetchData() {
     loadedSections.add('factions');
     loadedSections.add('transactions');
     notifyResolvedRequests();
+    notifyGmNewRequests();
     saveCache();
     return DB;
   } catch (e) {
@@ -517,7 +518,13 @@ async function renderTab(t){
     if(hasCache) refreshSection('guides').then(()=>{buildTagsFilter('guide-tags-filter',renderGuide,(DB.guides||[]).flatMap(g=>g.tags||[]));renderGuide()});
   }
   else if(t==='logs'){await ensureSection('logs');renderLogs();if(hasCache)refreshSection('logs').then(renderLogs)}
-  else if(t==='players'){renderPlayers()}
+  else if(t==='players'){
+    // Вкладка всегда открывается со списка игроков, а не с экрана
+    // персонажей, оставшегося от прошлого просмотра.
+    const cv=document.getElementById('chars-view');
+    if(cv&&cv.style.display!=='none')closePlayerChars();
+    else renderPlayers();
+  }
   else if(t==='gm'){renderGm()}
   else if(t==='items'){await ensureSection('items');renderItems();populatePlayerSelects();if(hasCache)refreshSection('items').then(()=>{renderItems();populatePlayerSelects()})}
   // Обновляем статус активной вкладки для тулбара (мобильный)
@@ -917,6 +924,10 @@ function readFile(file,pfx){
       const preview=document.getElementById(`${pfx}-img-preview`);
       const previewImg=document.getElementById(`${pfx}-img-preview-img`);
       const imgInput=document.getElementById(`${pfx}-img`);
+      // Для аватаров показываем редактор кадра, для остальных — обычное превью.
+      if(isAvatarPfx(pfx)&&buildCropEditor(pfx,ev.target.result,file.name)){
+        return;
+      }
       if(preview&&previewImg){
         previewImg.src=ev.target.result;
         preview.style.display='block';
@@ -959,6 +970,10 @@ function uploadEls(pfx){
 function clearUpload(pfx){
   noteAtts[pfx]=[];
   imgCleared.add(pfx);
+  delete cropState[pfx];
+  const {preview:pv}=uploadEls(pfx);
+  const host=pv&&pv.querySelector('.crop-host');
+  if(host)host.remove();
   const {preview,previewImg,fileInp,imgInput}=uploadEls(pfx);
   if(preview)preview.style.display='none';
   if(previewImg)previewImg.src='';
@@ -971,6 +986,135 @@ function clearUpload(pfx){
     if(url)url.value='';
   }
   toast('Картинка убрана — не забудьте сохранить','if');
+}
+
+/* ── Кадрирование картинки ────────────────────────────────────
+   Картинка вписывалась автоматически, и выбрать ракурс было нельзя.
+   Здесь — квадратная область просмотра: колесо или ползунок меняют
+   масштаб, перетаскивание сдвигает картинку. Результат сразу
+   пересобирается в готовое изображение и кладётся туда же, откуда
+   его берёт сохранение, поэтому остальной код не меняется. */
+
+const CROP_SIZE=512;          // сторона готовой картинки, px
+const cropState={};           // pfx -> {img, scale, minScale, x, y, name}
+
+function isAvatarPfx(pfx){
+  return pfx==='nc'||pfx==='pd'||/^ce-\d+$/.test(pfx);
+}
+
+function buildCropEditor(pfx,dataUrl,fileName){
+  const {preview,previewImg}=uploadEls(pfx);
+  if(!preview)return false;
+  if(previewImg)previewImg.style.display='none';
+
+  let host=preview.querySelector('.crop-host');
+  if(!host){
+    host=document.createElement('div');
+    host.className='crop-host';
+    host.innerHTML=`
+      <div class="crop-view"><canvas class="crop-cv" width="${CROP_SIZE}" height="${CROP_SIZE}"></canvas></div>
+      <div class="crop-ctl">
+        <span class="crop-lbl">Масштаб</span>
+        <input type="range" class="crop-range" min="100" max="300" value="100">
+        <button type="button" class="fmt-btn crop-reset">Сброс</button>
+      </div>
+      <div class="crop-hint">Перетащите картинку, чтобы выбрать ракурс</div>`;
+    preview.appendChild(host);
+  }
+  preview.style.display='block';
+
+  const cv=host.querySelector('.crop-cv');
+  const range=host.querySelector('.crop-range');
+  const img=new Image();
+  img.onload=()=>{
+    const minScale=Math.max(CROP_SIZE/img.width, CROP_SIZE/img.height);
+    cropState[pfx]={img,scale:minScale,minScale,x:0,y:0,name:fileName||'image.jpg'};
+    range.min='100'; range.max='300'; range.value='100';
+    clampCrop(pfx); drawCrop(pfx,cv); commitCrop(pfx);
+  };
+  img.src=dataUrl;
+
+  // Ползунок масштаба
+  range.oninput=()=>{
+    const st=cropState[pfx]; if(!st)return;
+    st.scale=st.minScale*(Number(range.value)/100);
+    clampCrop(pfx); drawCrop(pfx,cv); commitCropDebounced(pfx);
+  };
+  host.querySelector('.crop-reset').onclick=e=>{
+    e.stopPropagation();
+    const st=cropState[pfx]; if(!st)return;
+    st.scale=st.minScale; st.x=0; st.y=0; range.value='100';
+    drawCrop(pfx,cv); commitCrop(pfx);
+  };
+
+  // Перетаскивание — мышью и пальцем
+  let drag=null;
+  const start=(px,py)=>{const st=cropState[pfx];if(st)drag={px,py,x:st.x,y:st.y}};
+  const move=(px,py)=>{
+    if(!drag)return;
+    const st=cropState[pfx]; if(!st)return;
+    st.x=drag.x+(px-drag.px); st.y=drag.y+(py-drag.py);
+    clampCrop(pfx); drawCrop(pfx,cv);
+  };
+  const end=()=>{if(drag){drag=null;commitCrop(pfx)}};
+
+  cv.onmousedown=e=>{e.preventDefault();e.stopPropagation();start(e.clientX,e.clientY)};
+  window.addEventListener('mousemove',e=>move(e.clientX,e.clientY));
+  window.addEventListener('mouseup',end);
+  cv.ontouchstart=e=>{e.stopPropagation();const t=e.touches[0];start(t.clientX,t.clientY)};
+  cv.ontouchmove=e=>{e.preventDefault();const t=e.touches[0];move(t.clientX,t.clientY)};
+  cv.ontouchend=end;
+  cv.onclick=e=>e.stopPropagation();   // не открывать диалог выбора файла
+  cv.onwheel=e=>{
+    e.preventDefault();
+    const st=cropState[pfx]; if(!st)return;
+    const k=e.deltaY<0?1.06:1/1.06;
+    st.scale=Math.min(st.minScale*3,Math.max(st.minScale,st.scale*k));
+    range.value=String(Math.round(st.scale/st.minScale*100));
+    clampCrop(pfx); drawCrop(pfx,cv); commitCropDebounced(pfx);
+  };
+  return true;
+}
+
+/* Не даём утащить картинку за края области просмотра. */
+function clampCrop(pfx){
+  const st=cropState[pfx]; if(!st)return;
+  const w=st.img.width*st.scale, h=st.img.height*st.scale;
+  const maxX=Math.max(0,(w-CROP_SIZE)/2), maxY=Math.max(0,(h-CROP_SIZE)/2);
+  st.x=Math.min(maxX,Math.max(-maxX,st.x));
+  st.y=Math.min(maxY,Math.max(-maxY,st.y));
+}
+
+function drawCrop(pfx,cv){
+  const st=cropState[pfx]; if(!st)return;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,CROP_SIZE,CROP_SIZE);
+  const w=st.img.width*st.scale, h=st.img.height*st.scale;
+  ctx.drawImage(st.img,(CROP_SIZE-w)/2+st.x,(CROP_SIZE-h)/2+st.y,w,h);
+}
+
+let _cropTimer=null;
+function commitCropDebounced(pfx){
+  clearTimeout(_cropTimer);
+  _cropTimer=setTimeout(()=>commitCrop(pfx),160);
+}
+
+/* Складываем кадрированную картинку туда, откуда её читает сохранение. */
+function commitCrop(pfx){
+  const st=cropState[pfx]; if(!st)return;
+  const cv=document.createElement('canvas');
+  cv.width=CROP_SIZE; cv.height=CROP_SIZE;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,CROP_SIZE,CROP_SIZE);
+  const w=st.img.width*st.scale, h=st.img.height*st.scale;
+  ctx.drawImage(st.img,(CROP_SIZE-w)/2+st.x,(CROP_SIZE-h)/2+st.y,w,h);
+  // JPEG вместо PNG: кадр всегда непрозрачный, а вес меньше в разы —
+  // картинки хранятся в базе строкой base64.
+  const data=cv.toDataURL('image/jpeg',0.85);
+  noteAtts[pfx]=[{name:st.name,type:'image/jpeg',data}];
+  imgCleared.delete(pfx);
+  const imgInput=document.getElementById(`${pfx}-img`);
+  if(imgInput)imgInput.value=data;
 }
 
 function renderAttList(pfx){
@@ -2359,17 +2503,21 @@ function toggleCharsMore(pid){
 }
 function renderPlayers(){
   const g=document.getElementById('players-grid');
-  // Игрок видит только своего персонажа (по userId), ГМ видит всех
   const isGm=currentUser?.role==='gm';
-  const list = isGm
-    ? DB.players
-    : DB.players.filter(p => p.userId === currentUser?.id || p.name === currentUser?.username);
+  // Реестр открыт всем: профили других игроков доступны для просмотра.
+  // Редактирование по-прежнему только своё — это решает openPlayerDetail.
+  const q=(document.getElementById('player-q')?.value||'').trim().toLowerCase();
+  let list = DB.players || [];
+  if(q) list = list.filter(p =>
+    (p.name||'').toLowerCase().includes(q) ||
+    (p.chars||[]).some(c => (c.name||'').toLowerCase().includes(q))
+  );
   if(!list.length){
     g.innerHTML='<div class="emp"><div class="emp-ic">👥</div><h3>Нет персонажей</h3><p>Создайте своего первого персонажа</p></div>';
     return;
   }
   g.innerHTML=list.map(p=>`
-    <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerDetail(${p.id})">
+    <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerChars(${p.id})">
       ${isGm?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить игрока">✕</button>`:''}
       <div class="ic-ph">${p.img?`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`:'👤'}</div>
       <div class="ic-bd">
@@ -2412,6 +2560,76 @@ function renderPlayers(){
       </div>
     </div>`).join('');
   initLazyImages(g);
+}
+
+/* ── Экран персонажей выбранного игрока (второй уровень реестра) ──
+   Раньше список персонажей показывался одним блоком внутри модалки
+   профиля. Теперь клик по игроку открывает отдельный экран с карточками
+   персонажей и кнопкой возврата, как в реестре игроков. */
+function openPlayerChars(pid){
+  const p=DB.players.find(x=>x.id===pid);
+  if(!p){toast('Игрок не найден','er');return}
+  currentPlayerId=pid;
+
+  const isGm=currentUser?.role==='gm';
+  const isOwn=p.userId===currentUser?.id||p.name===currentUser?.username;
+  const canManage=isGm||isOwn;
+
+  document.getElementById('players-grid').style.display='none';
+  document.getElementById('chars-view').style.display='block';
+  document.getElementById('chars-view-name').textContent=p.name;
+  document.getElementById('chars-view-sub').textContent=
+    `${plural(p.chars?.length||0,'персонаж','персонажа','персонажей')} · слоты ${p.chars?.filter(c=>c.verified).length||0}/${p.slots||1} · ${p.points||0} pts`;
+  document.getElementById('chars-view-add').style.display=canManage?'inline-flex':'none';
+
+  renderCharsGrid(p,canManage);
+
+  // Картинки персонажей приходят и в списке, но у открытого профиля
+  // берём заведомо полные данные.
+  apiRequest('/players',{},{id:pid}).then(full=>{
+    if(full&&full.chars&&currentPlayerId===pid){
+      p.chars=full.chars; p.img=full.img||p.img; p.board=full.board||p.board;
+      renderCharsGrid(p,canManage);
+    }
+  }).catch(()=>{});
+  ensureSection('items').catch(()=>{});
+}
+
+function renderCharsGrid(p,canManage){
+  const g=document.getElementById('chars-grid');
+  if(!g)return;
+  const chars=p.chars||[];
+  if(!chars.length){
+    g.innerHTML=`<div class="emp"><div class="emp-ic">🧙</div><h3>Нет персонажей</h3><p>${canManage?'Создайте первого персонажа':'У игрока пока нет персонажей'}</p></div>`;
+    return;
+  }
+  g.innerHTML=chars.map((c,i)=>`
+    <div class="card char-card ${c.verified?'':'unverified'}" onclick="openCharDetail(${i})">
+      <div class="cc-ph">${c.img?`<img class="lz-img" data-src="${c.img}" style="opacity:0;transition:opacity .25s ease">`:'🧙'}</div>
+      <div class="cc-bd">
+        <div class="cc-n">${c.name||'—'} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:11px" title="На проверке">⏳</span>'}</div>
+        <div class="cc-cl">${c.class||'—'}${c.subclass?' · '+c.subclass:''}</div>
+        <div class="cc-ft">
+          <span class="cc-tag">ур. ${c.level||1}</span>
+          <span class="cc-tag">КТ ${normalizeKt(c.kt)[0]}/${normalizeKt(c.kt)[1]}</span>
+          ${(c.rep&&c.rep.length)?`<span class="cc-tag">репутация: ${c.rep.length}</span>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+  initLazyImages(g);
+}
+
+function closePlayerChars(){
+  document.getElementById('chars-view').style.display='none';
+  document.getElementById('players-grid').style.display='';
+  currentPlayerId=null;
+  renderPlayers();
+}
+
+/* КТ хранится парой [текущее, максимум]; у старых записей бывает мусор. */
+function normalizeKt(kt){
+  if(!Array.isArray(kt))return [0,8];
+  return [Number(kt[0])||0, Number(kt[1])||8];
 }
 
 /* ── Player detail / character management ── */
@@ -2847,7 +3065,9 @@ async function saveChar(idx){
       })
     },{id:p.id});
     toast('Персонаж сохранён','ok');
-    openPlayerDetail(currentPlayerId); // ре-рендер
+    const cv=document.getElementById('chars-view');
+    if(cv&&cv.style.display!=='none')renderCharsGrid(p,true);
+    else openPlayerDetail(currentPlayerId);
     renderPlayers();
   }catch(e){
     toast(e.message||'Ошибка сохранения','er');
@@ -2970,10 +3190,10 @@ async function createCharacter(){
     await apiRequest('/players',{
       method:'PUT',
       body:JSON.stringify({
-        name:me.name, discord:me.discord,
-        points:me.points, slots:me.slots,
+        name:me.name, discord:me.discord||'',
+        points:me.points||0, slots:me.slots||1,
         chars:me.chars,
-        img:me.img || null
+        img:me.img||null, board:me.board||null
       })
     },{id:me.id});
 
@@ -2994,6 +3214,13 @@ async function createCharacter(){
 
     closeModal('m-new-char');
     renderPlayers();
+    // Если открыт экран персонажей игрока — обновим и его
+    const cv=document.getElementById('chars-view');
+    if(cv&&cv.style.display!=='none'&&currentPlayerId===me.id){
+      renderCharsGrid(me,true);
+      document.getElementById('chars-view-sub').textContent=
+        `${plural(me.chars?.length||0,'персонаж','персонажа','персонажей')} · слоты ${me.chars?.filter(c=>c.verified).length||0}/${me.slots||1} · ${me.points||0} pts`;
+    }
     toast('Персонаж создан!','ok');
 
     // Очищаем форму
@@ -3041,6 +3268,131 @@ document.addEventListener('keydown',e=>{
   const top=open.reduce((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)>=(parseInt(getComputedStyle(a).zIndex)||0)?b:a);
   top.classList.remove('on'); top.style.zIndex='';
 });
+
+/* ── Уведомления ГМу о новых запросах ──────────────────────────
+   ГМ узнавал о запросе, только заглянув в панель. Теперь при опросе
+   сервера новые заявки показываются карточкой в правом нижнем углу
+   со звуковым сигналом; карточка исчезает сама. */
+
+const GM_SEEN_KEY='graal_gm_seen_v1';
+function getGmSeen(){
+  try{return JSON.parse(localStorage.getItem(GM_SEEN_KEY)||'{"tx":[],"chars":[]}')}
+  catch{return {tx:[],chars:[]}}
+}
+function setGmSeen(v){
+  try{localStorage.setItem(GM_SEEN_KEY,JSON.stringify({tx:(v.tx||[]).slice(-300),chars:(v.chars||[]).slice(-300)}))}catch{}
+}
+
+/* Короткий сигнал синтезируем сами — не нужен внешний файл,
+   который всё равно не загрузился бы при офлайне. */
+let _audioCtx=null;
+function notifySound(){
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx)return;
+    _audioCtx=_audioCtx||new Ctx();
+    if(_audioCtx.state==='suspended')_audioCtx.resume();
+    const now=_audioCtx.currentTime;
+    [[880,0],[1174.7,0.13]].forEach(([freq,at])=>{
+      const osc=_audioCtx.createOscillator(), gain=_audioCtx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.0001,now+at);
+      gain.gain.exponentialRampToValueAtTime(0.18,now+at+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001,now+at+0.22);
+      osc.connect(gain).connect(_audioCtx.destination);
+      osc.start(now+at); osc.stop(now+at+0.25);
+    });
+  }catch{}
+}
+// Браузеры запускают звук только после действия пользователя.
+document.addEventListener('click',()=>{
+  try{
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(Ctx&&!_audioCtx)_audioCtx=new Ctx();
+    if(_audioCtx&&_audioCtx.state==='suspended')_audioCtx.resume();
+  }catch{}
+},{once:true});
+
+/* Карточка уведомления справа снизу. Живёт 10 секунд,
+   клик открывает нужный раздел. */
+function notifyCard({icon='🔔',title,text,onClick,sound=true}){
+  let box=document.getElementById('ntf-box');
+  if(!box){
+    box=document.createElement('div');
+    box.id='ntf-box';
+    document.body.appendChild(box);
+  }
+  const card=document.createElement('div');
+  card.className='ntf';
+  card.innerHTML=`
+    <div class="ntf-ic">${icon}</div>
+    <div class="ntf-bd">
+      <div class="ntf-t">${title}</div>
+      <div class="ntf-x">${text||''}</div>
+    </div>
+    <button class="ntf-close" title="Закрыть">✕</button>`;
+  const remove=()=>{card.classList.add('out');setTimeout(()=>card.remove(),300)};
+  card.querySelector('.ntf-close').onclick=e=>{e.stopPropagation();remove()};
+  if(onClick)card.onclick=()=>{onClick();remove()};
+  box.appendChild(card);
+  requestAnimationFrame(()=>card.classList.add('in'));
+  setTimeout(remove,10000);
+  if(sound)notifySound();
+}
+
+/* Сверяем свежие данные с уже показанными и сообщаем ГМу о новом. */
+function notifyGmNewRequests(){
+  if(currentUser?.role!=='gm')return;
+  const seen=getGmSeen();
+  const seenTx=new Set(seen.tx||[]);
+  const seenChars=new Set(seen.chars||[]);
+  let changed=false;
+
+  // Первый запуск: помечаем всё существующее как виденное,
+  // иначе ГМ получил бы шквал уведомлений о старых заявках.
+  const firstRun=!localStorage.getItem(GM_SEEN_KEY);
+
+  for(const t of (DB.transactions||[])){
+    if(t.status!=='pending')continue;
+    const key=String(t.id);
+    if(seenTx.has(key))continue;
+    seenTx.add(key); changed=true;
+    if(!firstRun){
+      const preview=t.desc&&t.desc.length>60?t.desc.slice(0,60)+'…':(t.desc||'');
+      notifyCard({
+        icon:'✉',
+        title:`Новый запрос от ${t.player||'игрока'}`,
+        text:preview,
+        onClick:()=>{switchTab('gm');}
+      });
+    }
+  }
+
+  for(const p of (DB.players||[])){
+    for(const c of (p.chars||[])){
+      if(c.verified)continue;
+      const key=`${p.id}:${c.name}`;
+      if(seenChars.has(key))continue;
+      seenChars.add(key); changed=true;
+      if(!firstRun){
+        notifyCard({
+          icon:'🧙',
+          title:'Новый персонаж на заверение',
+          text:`${c.name||'—'} · игрок ${p.name}`,
+          onClick:()=>{switchTab('gm');}
+        });
+      }
+    }
+  }
+
+  if(changed)setGmSeen({tx:[...seenTx],chars:[...seenChars]});
+}
+
+/* Программное переключение вкладки — используется из уведомлений. */
+function switchTab(name){
+  const nav=document.querySelector(`.nav-a[data-tab="${name}"]`);
+  if(nav)nav.click();
+}
 
 /* ── Toast notifications ── */
 function toast(msg,type='ok'){

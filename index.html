@@ -411,6 +411,22 @@
     </div>
   </div>
   <div class="pg" id="players-grid"></div>
+
+  <!-- Второй уровень: персонажи выбранного игрока -->
+  <div id="chars-view" style="display:none">
+    <div class="chars-hd">
+      <button class="btn btn-g" onclick="closePlayerChars()">← К игрокам</button>
+      <div class="chars-hd-t">
+        <div class="chars-hd-n" id="chars-view-name"></div>
+        <div class="chars-hd-s" id="chars-view-sub"></div>
+      </div>
+      <div class="chars-hd-a">
+        <button class="btn btn-g" id="chars-view-profile" onclick="openPlayerDetail(currentPlayerId)">Профиль игрока</button>
+        <button class="btn btn-p" id="chars-view-add" onclick="openModal('m-new-char')">+ Создать персонажа</button>
+      </div>
+    </div>
+    <div class="pg" id="chars-grid"></div>
+  </div>
 </section>
 
 </main>

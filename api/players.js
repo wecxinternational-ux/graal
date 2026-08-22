@@ -110,11 +110,19 @@ module.exports = async (req, res) => {
       }
     }
     const {name, discord, points, slots, chars, img, board} = req.body;
+    // Драйвер БД не принимает undefined. Клиент присылает не все поля
+    // (например, при создании персонажа не было board), и запрос падал
+    // с 500 — персонаж оставался только на экране и исчезал после
+    // перезагрузки. Приводим пропущенные значения к null явно.
+    const nn = (v) => (v === undefined ? null : v);
     try {
       await db.execute({
         sql: `UPDATE players SET name=?, discord=?, points=?, slots=?, chars=?, img=?, board=?
               WHERE id=?`,
-        args: [name, discord, points, slots, JSON.stringify(chars), img, board, id]
+        args: [
+          nn(name), nn(discord), nn(points), nn(slots),
+          JSON.stringify(chars ?? []), nn(img), nn(board), id
+        ]
       });
       return res.json({ success: true });
     } catch (e) {

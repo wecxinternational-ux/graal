@@ -901,3 +901,71 @@ body.light .char-pending-badge{color:#A16207}
 }
 .fmt-btn:hover{background:var(--bg-e);color:var(--txt);border-color:var(--gold)}
 .fmt-hint{font-size:11px;color:var(--txt-m);margin-left:auto}
+
+/* ── Экран персонажей выбранного игрока ── */
+.chars-hd{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--bd);
+}
+.chars-hd-t{min-width:0}
+.chars-hd-n{font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:var(--gold)}
+.chars-hd-s{font-size:12px;color:var(--txt-m);margin-top:2px}
+.chars-hd-a{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.char-card{cursor:pointer;position:relative;transition:transform .15s,border-color .15s}
+.char-card:hover{transform:translateY(-2px);border-color:var(--gold)}
+.char-card.unverified{opacity:.7}
+.char-card .cc-ph{
+  height:150px;background:var(--bg-h);display:flex;align-items:center;
+  justify-content:center;font-size:44px;overflow:hidden;
+}
+.char-card .cc-ph img{width:100%;height:100%;object-fit:cover}
+.char-card .cc-bd{padding:12px 14px}
+.char-card .cc-n{font-weight:600;color:var(--gold);display:flex;align-items:center;gap:6px}
+.char-card .cc-cl{font-size:12px;color:var(--txt-s);margin-top:3px}
+.char-card .cc-ft{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--txt-m)}
+.char-card .cc-tag{background:var(--bg-h);border-radius:5px;padding:2px 7px}
+
+/* ── Всплывающие уведомления (правый нижний угол) ── */
+#ntf-box{
+  position:fixed;right:18px;bottom:18px;z-index:9000;
+  display:flex;flex-direction:column;gap:10px;
+  max-width:min(92vw,360px);pointer-events:none;
+}
+.ntf{
+  pointer-events:auto;display:flex;align-items:flex-start;gap:11px;
+  background:var(--bg-e);border:1px solid var(--bd);border-left:3px solid var(--gold);
+  border-radius:10px;padding:12px 13px;cursor:pointer;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+  opacity:0;transform:translateX(24px);
+  transition:opacity .28s ease,transform .28s ease;
+}
+.ntf.in{opacity:1;transform:translateX(0)}
+.ntf.out{opacity:0;transform:translateX(24px)}
+.ntf:hover{border-color:var(--gold)}
+.ntf-ic{font-size:20px;line-height:1.2;flex-shrink:0}
+.ntf-bd{min-width:0;flex:1}
+.ntf-t{font-weight:600;color:var(--gold);font-size:13px;margin-bottom:3px}
+.ntf-x{font-size:12px;color:var(--txt-s);word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ntf-close{
+  background:none;border:none;color:var(--txt-m);cursor:pointer;
+  font-size:12px;padding:2px 4px;border-radius:4px;flex-shrink:0;opacity:.6;
+}
+.ntf-close:hover{opacity:1;color:var(--txt);background:var(--bg-h)}
+@media (max-width:640px){
+  #ntf-box{right:10px;left:10px;bottom:10px;max-width:none}
+}
+
+/* ── Кадрирование картинки ── */
+.crop-host{margin:4px 0 2px}
+.crop-view{
+  width:200px;height:200px;border-radius:10px;overflow:hidden;
+  border:1px solid var(--bd);background:var(--bg-h);
+  position:relative;margin:0 auto;
+}
+.crop-cv{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+.crop-cv:active{cursor:grabbing}
+.crop-ctl{display:flex;align-items:center;gap:8px;margin-top:9px;justify-content:center;flex-wrap:wrap}
+.crop-lbl{font-size:11px;color:var(--txt-m);text-transform:uppercase;letter-spacing:.06em}
+.crop-range{width:130px;accent-color:var(--gold);cursor:pointer}
+.crop-hint{font-size:11px;color:var(--txt-m);text-align:center;margin-top:6px;font-style:italic}
