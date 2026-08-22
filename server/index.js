@@ -81,16 +81,23 @@ app.use('/api', (req, res) => {
 app.use(express.static(ROOT, {
   index: 'index.html',
   extensions: ['html'],
+  etag: true,
+  lastModified: true,
   setHeaders: (res, filePath) => {
-    // index.html не кешируем, чтобы правки фронта долетали сразу.
-    if (filePath.endsWith('index.html')) {
+    // Разметка, скрипты и стили меняются с каждым обновлением сайта.
+    // no-cache не запрещает кеширование, но обязывает браузер сверять
+    // версию с сервером: неизменившийся файл отдаётся как 304, а свежий
+    // приходит сразу. Иначе после обновления приходилось жать Ctrl+F5.
+    if (/\.(html|js|css)$/i.test(filePath)) {
       res.setHeader('Cache-Control', 'no-cache');
     }
   }
 }));
 
 // Остальное отдаём index.html (одностраничное приложение).
+// Этот путь минует setHeaders выше, поэтому заголовок ставим явно.
 app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(ROOT, 'index.html'));
 });
 

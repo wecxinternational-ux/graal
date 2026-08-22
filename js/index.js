@@ -3036,7 +3036,13 @@ async function removeCharRep(idx,repIdx){
 function toggleEditChar(idx){
   const editEl=document.getElementById(`char-edit-${idx}`);
   if(!editEl)return;
-  editEl.style.display=editEl.style.display==='none'?'block':'none';
+  const opening=editEl.style.display==='none';
+  editEl.style.display=opening?'block':'none';
+  // Форма высокая и раскрывается ниже кнопки — без прокрутки видна
+  // только её верхняя кромка, и кажется, что нажатие не сработало.
+  if(opening){
+    requestAnimationFrame(()=>editEl.scrollIntoView({behavior:'smooth',block:'start'}));
+  }
 }
 
 async function saveChar(idx){
