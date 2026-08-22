@@ -1075,6 +1075,25 @@ function buildCropEditor(pfx,dataUrl,fileName){
   return true;
 }
 
+/* Открыть кадрирование для уже сохранённой картинки.
+   Раньше редактор появлялся только при выборе нового файла, и у
+   загруженного портрета ракурс поменять было нельзя. */
+function editExistingImage(pfx,src){
+  if(!src){toast('Сначала загрузите картинку','er');return}
+  const existing=document.getElementById(`existing-img-${pfx}`);
+  if(existing)existing.style.display='none';
+  buildCropEditor(pfx,src,'portrait.jpg');
+}
+
+/* Картинку берём из данных, а не из атрибута: она хранится строкой
+   base64 и в разметке весила бы сотни килобайт. */
+function editCharImage(idx){
+  const p=DB.players.find(x=>x.id===currentPlayerId);
+  const c=p?.chars?.[idx];
+  if(!c){toast('Персонаж не найден','er');return}
+  editExistingImage(`ce-${idx}`, c.img);
+}
+
 /* Не даём утащить картинку за края области просмотра. */
 function clampCrop(pfx){
   const st=cropState[pfx]; if(!st)return;
@@ -2515,7 +2534,7 @@ function renderPlayers(){
   g.innerHTML=list.map(p=>`
     <div class="card ic" style="cursor:pointer;position:relative" onclick="openPlayerChars(${p.id})">
       ${(isGm&&(p.userId===currentUser?.id||(p.userId==null&&p.name===currentUser?.username)))?`<button class="bic btn-x" style="position:absolute;top:8px;right:8px;width:26px;height:26px;font-size:12px;z-index:2" onclick="event.stopPropagation();deletePlayer(${p.id},'${(p.name||'').replace(/'/g,"\\'")}')" title="Удалить свой реестр">✕</button>`:''}
-      <div class="ic-ph">${p.img?`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`:'👤'}</div>
+      <div class="ic-ph${p.img?' has-img':''}">${p.img?`<img class="lz-img" data-src="${p.img}" style="width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .25s ease">`:'👤'}</div>
       <div class="ic-bd">
         <div class="ic-n">${p.name}</div>
         <div class="ic-ty">${p.discord||'—'}</div>
@@ -2526,7 +2545,7 @@ function renderPlayers(){
         </div>
         ${p.chars?.length ? `
           <div style="margin-top:10px">
-            <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${p.chars[0].verified?1:.65};display:flex;align-items:center;gap:10px">
+            <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;display:flex;align-items:center;gap:10px">
               <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
               <div>
                 <div style="font-weight:600;color:var(--gold)">${p.chars[0].name} ${p.chars[0].verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
@@ -2537,7 +2556,7 @@ function renderPlayers(){
               <div id="chars-more-${p.id}" style="max-height:0;overflow:hidden;transition:max-height .3s ease-out">
                 <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
                   ${p.chars.slice(1).map(c=>`
-                    <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;opacity:${c.verified?1:.65};display:flex;align-items:center;gap:10px">
+                    <div style="background:var(--bg-h);border-radius:8px;padding:8px 10px;font-size:12px;display:flex;align-items:center;gap:10px">
                       <div style="width:36px;height:36px;border-radius:6px;background:var(--bg-e);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">👤</div>
                       <div>
                         <div style="font-weight:600;color:var(--gold)">${c.name} ${c.verified?'<span title="Заверён">✓</span>':'<span style="color:var(--txt-m);font-size:10px" title="На проверке">⏳</span>'}</div>
@@ -2981,7 +3000,10 @@ function openCharDetail(idx,editMode=false){
                 <input type="file" id="ce-file-inp-${idx}" accept="image/*" onchange="handleFiles(event,'ce-${idx}')">
                 <div id="ce-img-preview-${idx}" style="display:none;margin-bottom:8px"><img id="ce-img-preview-img-${idx}" style="max-width:200px;max-height:200px;border-radius:8px"></div>
                 ${c.img?`<div id="existing-img-ce-${idx}" style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
-                ${c.img?`<button type="button" class="btn btn-g" style="margin-bottom:8px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ce-${idx}')">Убрать картинку</button>`:''}
+                ${c.img?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+                  <button type="button" class="btn btn-g" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();editCharImage(${idx})">✥ Настроить ракурс</button>
+                  <button type="button" class="btn btn-g" style="font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ce-${idx}')">Убрать картинку</button>
+                </div>`:''}
                 Перетащите изображение или нажмите для выбора
               </div>
             </div>
