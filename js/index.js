@@ -2577,6 +2577,10 @@ function openPlayerChars(pid){
 
   document.getElementById('players-grid').style.display='none';
   document.getElementById('chars-view').style.display='block';
+  // Панель списка игроков не нужна на втором уровне: поиск там про
+  // игроков, а кнопка создания дублирует такую же в шапке экрана.
+  const topActions=document.getElementById('players-top-actions');
+  if(topActions)topActions.style.display='none';
   document.getElementById('chars-view-name').textContent=p.name;
   document.getElementById('chars-view-sub').textContent=
     `${plural(p.chars?.length||0,'персонаж','персонажа','персонажей')} · слоты ${p.chars?.filter(c=>c.verified).length||0}/${p.slots||1} · ${p.points||0} pts`;
@@ -2622,6 +2626,8 @@ function renderCharsGrid(p,canManage){
 function closePlayerChars(){
   document.getElementById('chars-view').style.display='none';
   document.getElementById('players-grid').style.display='';
+  const topActions=document.getElementById('players-top-actions');
+  if(topActions)topActions.style.display='';
   currentPlayerId=null;
   renderPlayers();
 }
@@ -2719,7 +2725,7 @@ function renderPlayerChars(p,canManage){
           </div>
           ${canManage?`
             <div class="char-actions">
-              <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();toggleEditChar(${i})">✎ Изменить</button>
+              <button class="btn btn-g" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();openCharDetail(${i},true)">✎ Изменить</button>
               <button class="btn btn-x" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();deleteChar(${i})">✕</button>
             </div>
           `:''}
@@ -2765,35 +2771,6 @@ function renderPlayerChars(p,canManage){
                 `).join('')}
               </div>
             `:'<div style="font-size:12px;color:var(--txt-m);font-style:italic">Предметов пока нет</div>'}
-          </div>
-        </div>
-        <div class="char-edit" id="char-edit-${i}" style="display:none">
-          <div class="fg2">
-            <div class="fg"><label>Имя</label><input class="inp" id="ce-name-${i}" value="${(c.name||'').replace(/"/g,'&quot;')}"></div>
-            <div class="fg"><label>Класс</label><input class="inp" id="ce-class-${i}" value="${(c.class||'').replace(/"/g,'&quot;')}"></div>
-            <div class="fg"><label>Подкласс</label><input class="inp" id="ce-subclass-${i}" value="${(c.subclass||'').replace(/"/g,'&quot;')}"></div>
-            <div class="fg"><label>Уровень</label><input class="inp" type="number" min="1" max="20" id="ce-level-${i}" value="${c.level||1}"></div>
-            <div class="fg"><label>КТ мин</label><input class="inp" type="number" id="ce-ktmin-${i}" value="${c.kt?c.kt[0]:0}"></div>
-            <div class="fg"><label>КТ макс</label><input class="inp" type="number" id="ce-ktmax-${i}" value="${c.kt?c.kt[1]:0}"></div>
-            <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="ce-os-1-${i}" value="${normalizeOs(c.os)[0]}"></div>
-            <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${i}" value="${normalizeOs(c.os)[1]}"></div>
-            <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${i}" value="${normalizeOs(c.os)[2]}"></div>
-            <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${i}" value="${normalizeOs(c.os)[3]}"></div>
-            <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${i}" rows="3" placeholder="Особенности персонажа, привычки, черты характера...">${c.desc||''}</textarea></div>
-            <div class="fg fg-full">
-              <label>Аватар персонажа</label>
-              <div class="fdz" id="ce-fdz-${i}" onclick="document.getElementById('ce-file-inp-${i}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${i}')">
-                <input type="file" id="ce-file-inp-${i}" accept="image/*" onchange="handleFiles(event,'ce-${i}')">
-                <div id="ce-img-preview-${i}" style="display:none;margin-bottom:8px"><img id="ce-img-preview-img-${i}" style="max-width:200px;max-height:200px;border-radius:8px"></div>
-                ${c.img?`<div id="existing-img-ce-${i}" style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
-                ${c.img?`<button type="button" class="btn btn-g" style="margin-bottom:8px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ce-${i}')">Убрать картинку</button>`:''}
-                Перетащите изображение или нажмите для выбора
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button class="btn btn-p" onclick="saveChar(${i})">Сохранить</button>
-            <button class="btn btn-g" onclick="toggleEditChar(${i})">Отмена</button>
           </div>
         </div>
       </div>
@@ -2893,7 +2870,7 @@ async function savePlayerBoard(){
   }
 }
 
-function openCharDetail(idx){
+function openCharDetail(idx,editMode=false){
   const p=DB.players.find(x=>x.id===currentPlayerId);
   if(!p||!p.chars[idx]){toast('Персонаж не найден','er');return}
   const c=p.chars[idx];
@@ -2986,14 +2963,50 @@ function openCharDetail(idx){
 
       ${canManage?`
         <div style="display:flex;gap:8px;margin-top:14px">
-          <button class="btn btn-g" onclick="closeModal('m-char-detail');toggleEditChar(${idx})">✎ Изменить</button>
+          <button class="btn btn-g" onclick="toggleEditChar(${idx})">✎ Изменить</button>
           <button class="btn btn-x" onclick="closeModal('m-char-detail');deleteChar(${idx})">✕ Удалить</button>
+        </div>
+        <div class="char-edit" id="char-edit-${idx}" style="display:none">
+          <div class="fg2">
+            <div class="fg"><label>Имя</label><input class="inp" id="ce-name-${idx}" value="${(c.name||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Класс</label><input class="inp" id="ce-class-${idx}" value="${(c.class||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Подкласс</label><input class="inp" id="ce-subclass-${idx}" value="${(c.subclass||'').replace(/"/g,'&quot;')}"></div>
+            <div class="fg"><label>Уровень</label><input class="inp" type="number" min="1" max="20" id="ce-level-${idx}" value="${c.level||1}"></div>
+            <div class="fg"><label>КТ мин</label><input class="inp" type="number" id="ce-ktmin-${idx}" value="${c.kt?c.kt[0]:0}"></div>
+            <div class="fg"><label>КТ макс</label><input class="inp" type="number" id="ce-ktmax-${idx}" value="${c.kt?c.kt[1]:0}"></div>
+            <div class="fg"><label>ОС этап 1</label><input class="inp" type="number" id="ce-os-1-${idx}" value="${normalizeOs(c.os)[0]}"></div>
+            <div class="fg"><label>ОС этап 2</label><input class="inp" type="number" id="ce-os-2-${idx}" value="${normalizeOs(c.os)[1]}"></div>
+            <div class="fg"><label>ОС этап 3</label><input class="inp" type="number" id="ce-os-3-${idx}" value="${normalizeOs(c.os)[2]}"></div>
+            <div class="fg"><label>ОС этап 4</label><input class="inp" type="number" id="ce-os-4-${idx}" value="${normalizeOs(c.os)[3]}"></div>
+            <div class="fg fg-full"><label>Описание</label><textarea class="inp" id="ce-desc-${idx}" rows="3" placeholder="Особенности персонажа, привычки, черты характера...">${c.desc||''}</textarea></div>
+            <div class="fg fg-full">
+              <label>Аватар персонажа</label>
+              <div class="fdz" id="ce-fdz-${idx}" onclick="document.getElementById('ce-file-inp-${idx}').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event,'ce-${idx}')">
+                <input type="file" id="ce-file-inp-${idx}" accept="image/*" onchange="handleFiles(event,'ce-${idx}')">
+                <div id="ce-img-preview-${idx}" style="display:none;margin-bottom:8px"><img id="ce-img-preview-img-${idx}" style="max-width:200px;max-height:200px;border-radius:8px"></div>
+                ${c.img?`<div id="existing-img-ce-${idx}" style="margin-bottom:8px"><img src="${c.img}" style="max-width:200px;max-height:200px;border-radius:8px"></div>`:''}
+                ${c.img?`<button type="button" class="btn btn-g" style="margin-bottom:8px;font-size:12px;padding:4px 10px" onclick="event.stopPropagation();clearUpload('ce-${idx}')">Убрать картинку</button>`:''}
+                Перетащите изображение или нажмите для выбора
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-p" onclick="saveChar(${idx})">Сохранить</button>
+            <button class="btn btn-g" onclick="toggleEditChar(${idx})">Отмена</button>
+          </div>
         </div>
       `:''}
     </div>
   `;
 
   openModal('m-char-detail');
+  // Форма правки живёт здесь же: открыть её можно и из карточки игрока,
+  // и с экрана персонажей — раньше она существовала только внутри
+  // модалки профиля, и с нового экрана правка молча не работала.
+  if(editMode&&canManage){
+    const ed=document.getElementById(`char-edit-${idx}`);
+    if(ed)ed.style.display='block';
+  }
   initLazyImages(document.getElementById('m-char-detail'));
 }
 
@@ -3065,6 +3078,7 @@ async function saveChar(idx){
       })
     },{id:p.id});
     toast('Персонаж сохранён','ok');
+    closeModal('m-char-detail');
     const cv=document.getElementById('chars-view');
     if(cv&&cv.style.display!=='none')renderCharsGrid(p,true);
     else openPlayerDetail(currentPlayerId);
